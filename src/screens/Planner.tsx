@@ -175,13 +175,13 @@ export default function Planner() {
             <div className="text-zinc-300 text-sm">Daily Planner</div>
             <div className="flex items-center gap-2">
               <button
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10"
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10 flex items-center gap-2"
                 onClick={() => setShowSettings(true)}
               >
                 <Settings size={16} /> Settings
               </button>
               <button
-                className="rounded-lg bg-[#6EA8FF] text-[#0b0d12] px-3 py-1.5 text-sm flex items-center gap-2"
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10 flex items-center gap-2"
                 onClick={() => setShowExport(true)}
               >
                 <FileDown size={16} /> Export
@@ -189,101 +189,99 @@ export default function Planner() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-center">
-            {/* Timer */}
-            <div className="mx-auto relative">
-              <div
-                className="absolute -inset-6 rounded-full blur-2xl opacity-40"
-                style={{
-                  background:
-                    mode === "focus"
-                      ? "radial-gradient(60% 60% at 50% 50%, rgba(255,110,110,.25), transparent)"
-                      : "radial-gradient(60% 60% at 50% 50%, rgba(93,211,158,.25), transparent)",
-                }}
-              ></div>
-              <Ring progress={pct} theme={mode} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="text-5xl font-semibold tracking-tight">
-                  {pad(Math.floor(secs / 60))}:{pad(secs % 60)}
-                </div>
-                <div className="mt-2 text-xs uppercase tracking-widest text-zinc-400">
-                  {mode === "focus" ? "FOCUS" : "BREAK"}
-                </div>
-                <div className="mt-4 flex items-center gap-2">
-                  {!running ? (
-                    <button
-                      className="rounded-xl bg-white text-black px-4 py-2 flex items-center gap-2 shadow"
-                      onClick={() => setRunning(true)}
-                    >
-                      <Play size={16} /> Start
-                    </button>
-                  ) : (
-                    <button
-                      className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
-                      onClick={() => setRunning(false)}
-                    >
-                      <Pause size={16} /> Pause
-                    </button>
-                  )}
+          {/* Timer */}
+          <div className="mx-auto relative w-fit">
+            <div
+              className="absolute -inset-6 rounded-full blur-2xl opacity-40"
+              style={{
+                background:
+                  mode === "focus"
+                    ? "radial-gradient(60% 60% at 50% 50%, rgba(255,110,110,.25), transparent)"
+                    : "radial-gradient(60% 60% at 50% 50%, rgba(93,211,158,.25), transparent)",
+              }}
+            ></div>
+            <Ring progress={pct} theme={mode} />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="text-5xl font-semibold tracking-tight">
+                {pad(Math.floor(secs / 60))}:{pad(secs % 60)}
+              </div>
+              <div className="mt-2 text-xs uppercase tracking-widest text-zinc-400">
+                {mode === "focus" ? "FOCUS" : "BREAK"}
+              </div>
+              <div className="mt-4 flex items-center gap-2">
+                {!running ? (
+                  <button
+                    className="rounded-xl bg-white text-black px-4 py-2 flex items-center gap-2 shadow"
+                    onClick={() => setRunning(true)}
+                  >
+                    <Play size={16} /> Start
+                  </button>
+                ) : (
                   <button
                     className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
-                    onClick={() => {
-                      setRunning(false);
-                      setSecs((mode === "focus" ? workMin : breakMin) * 60);
-                    }}
+                    onClick={() => setRunning(false)}
                   >
-                    <StopCircle size={16} /> Reset
+                    <Pause size={16} /> Pause
                   </button>
-                </div>
-                <div className="mt-3 text-xs text-zinc-400">
-                  Long break every 4 sessions
-                </div>
+                )}
+                <button
+                  className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
+                  onClick={() => {
+                    setRunning(false);
+                    setSecs((mode === "focus" ? workMin : breakMin) * 60);
+                  }}
+                >
+                  <StopCircle size={16} /> Reset
+                </button>
+              </div>
+              <div className="mt-3 text-xs text-zinc-400">
+                Long break every 4 sessions
               </div>
             </div>
+          </div>
 
-            {/* Log */}
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-zinc-200 font-medium">
-                  Today’s Sessions
-                </div>
-                <div className="text-xs text-zinc-400 flex items-center gap-2">
-                  <Clock size={14} />{" "}
-                  {log.filter((l) => l.kind === "focus").length} focus •{" "}
-                  {log.filter((l) => l.kind === "break").length} breaks
-                </div>
+          {/* Log */}
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4 mt-6">
+            <div className="flex items-center justify-between">
+              <div className="text-zinc-200 font-medium">
+                Today’s Sessions
               </div>
-              {log.length === 0 ? (
-                <div className="text-sm text-zinc-400 mt-3">
-                  No sessions yet. Start your first 25:00.
-                </div>
-              ) : (
-                <div className="mt-3 grid gap-2 max-h-64 overflow-auto pr-1">
-                  {log.map((s, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
-                    >
-                      <span
-                        className={`h-2 w-2 rounded-full ${
-                          s.kind === "focus" ? "bg-red-400" : "bg-emerald-400"
-                        }`}
-                      />
-                      <div className="text-sm text-zinc-200 capitalize">
-                        {s.kind}
-                      </div>
-                      <div className="text-xs text-zinc-400">{s.minutes}m</div>
-                      <div className="ml-auto text-xs text-zinc-400">
-                        {s.at}
-                      </div>
-                      {s.completed && (
-                        <Check className="text-emerald-400" size={14} />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="text-xs text-zinc-400 flex items-center gap-2">
+                <Clock size={14} />{" "}
+                {log.filter((l) => l.kind === "focus").length} focus •{" "}
+                {log.filter((l) => l.kind === "break").length} breaks
+              </div>
             </div>
+            {log.length === 0 ? (
+              <div className="text-sm text-zinc-400 mt-3">
+                No sessions yet. Start your first 25:00.
+              </div>
+            ) : (
+              <div className="mt-3 grid gap-2 max-h-64 overflow-auto pr-1">
+                {log.map((s, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                  >
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        s.kind === "focus" ? "bg-red-400" : "bg-emerald-400"
+                      }`}
+                    />
+                    <div className="text-sm text-zinc-200 capitalize">
+                      {s.kind}
+                    </div>
+                    <div className="text-xs text-zinc-400">{s.minutes}m</div>
+                    <div className="ml-auto text-xs text-zinc-400">
+                      {s.at}
+                    </div>
+                    {s.completed && (
+                      <Check className="text-emerald-400" size={14} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -357,10 +355,7 @@ export default function Planner() {
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 text-xs text-zinc-400 flex items-center justify-between">
             <div>{suggestion}</div>
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-400" /> Ready •{" "}
-              <span className="text-zinc-500">
-                Export saves Markdown to your vault
-              </span>
+              <div className="h-2 w-2 rounded-full bg-emerald-400" /> Ready
             </div>
           </div>
         </div>
