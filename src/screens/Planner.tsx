@@ -10,6 +10,7 @@ import {
   FileDown,
   Settings,
   Check,
+  Target,
 } from "lucide-react";
 import { Session, Task } from "../types";
 import { pad, todayISO, uuid } from "../lib/utils";
@@ -26,6 +27,10 @@ export default function Planner() {
   const [workMin, setWorkMin] = useState(25);
   const [breakMin, setBreakMin] = useState(5);
   const [secs, setSecs] = useState(workMin * 60);
+
+  // Focus / Queue
+  const [focusQueue, setFocusQueue] = useState<string[]>([]);
+  const [activeFocus, setActiveFocus] = useState<string[]>([]);
 
   // Todos
   const [tasks, setTasks] = useState<Task[]>([
@@ -58,10 +63,44 @@ export default function Planner() {
     "Click the wand to tighten titles + add durations."
   );
 
+  // --- Helper Fns ---
+  const inQueue = (id: string) =>
+    focusQueue.includes(id) || activeFocus.includes(id);
+
+  const toggleFocusForTask = (id: string) => {
+    // If running, alter the active session; else alter the queue.
+    if (running) {
+      setActiveFocus((a) =>
+        a.includes(id) ? a.filter((x) => x !== id) : [...a, id]
+      );
+    } else {
+      setFocusQueue((q) =>
+        q.includes(id) ? q.filter((x) => x !== id) : [...q, id]
+      );
+    }
+  };
+
+  const clearQueue = () => setFocusQueue([]);
+
+  const startTimer = () => {
+    // When starting, bind the queue (if any) to active session.
+    if (!running) {
+      setActiveFocus(focusQueue);
+      setRunning(true);
+    }
+  };
+
+  const stopAndReset = () => {
+    setRunning(false);
+    setSecs((mode === "focus" ? workMin : breakMin) * 60);
+    // Keep the queue; clear active focus to avoid leaking into next session
+    setActiveFocus([]);
+  };
+
   // Timer engine
   useEffect(() => {
     if (!running) return;
-    const id = setInterval(() => setSecs((s) => (s > 0 ? s - 1 : 0)), 1000);
+    const id = setInterval(() => setSecs((s) => (s > 0.1 ? s - 0.1 : 0)), 100);
     return () => clearInterval(id);
   }, [running]);
   useEffect(() => {
@@ -77,6 +116,7 @@ export default function Planner() {
           kind: mode,
           minutes,
           completed: true,
+          taskIds: activeFocus.length ? [...activeFocus] : undefined,
         },
         ...l,
       ]);
@@ -84,13 +124,14 @@ export default function Planner() {
       const next = mode === "focus" ? "break" : "focus";
       setMode(next);
       setSecs((next === "focus" ? workMin : breakMin) * 60);
+      if (mode === "focus") setActiveFocus([]);
     }
-  }, [secs, running, mode, workMin, breakMin]);
+  }, [secs, running, mode, workMin, breakMin, activeFocus]);
 
   // Reset on duration change
   useEffect(() => {
     if (!running) setSecs((mode === "focus" ? workMin : breakMin) * 60);
-  }, [workMin, breakMin, mode, running]);
+  }, [workMin, breakMin, mode]);
 
   const pct = 1 - secs / ((mode === "focus" ? workMin : breakMin) * 60);
   const mm = pad(Math.floor(secs / 60));
@@ -154,9 +195,15 @@ export default function Planner() {
       );
     });
     lines.push("\n## Pomodoro Log\n");
-    log.forEach((s) =>
-      lines.push(`- ${s.at} — ${s.kind} ${s.minutes}m ${s.completed ? "✅" : "⏸️"}`)
-    );
+    log.forEach((s) => {
+      const taskStr = (s.taskIds || [])
+        .map((id) => tasks.find((t) => t.id === id)?.title || id)
+        .join(", ");
+      const tasksNote = taskStr ? ` — tasks: ${taskStr}` : "";
+      lines.push(
+        `- ${s.at} — ${s.kind} ${s.minutes}m ${s.completed ? "✅" : "⏸️"}${tasksNote}`
+      );
+    });
     return lines.join("\n");
   }, [tasks, log]);
 
@@ -204,7 +251,7 @@ export default function Planner() {
               <Ring progress={pct} theme={mode} />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <div className="text-5xl font-semibold tracking-tight">
-                  {pad(Math.floor(secs / 60))}:{pad(secs % 60)}
+                  {pad(Math.floor(secs / 60))}:{pad(Math.floor(secs) % 60)}
                 </div>
                 <div className="mt-2 text-xs uppercase tracking-widest text-zinc-400">
                   {mode === "focus" ? "FOCUS" : "BREAK"}
@@ -215,7 +262,7 @@ export default function Planner() {
               {!running ? (
                 <button
                   className="rounded-xl bg-white text-black px-4 py-2 flex items-center gap-2 shadow"
-                  onClick={() => setRunning(true)}
+                  onClick={startTimer}
                 >
                   <Play size={16} /> Start
                 </button>
@@ -229,10 +276,7 @@ export default function Planner() {
               )}
               <button
                 className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
-                onClick={() => {
-                  setRunning(false);
-                  setSecs((mode === "focus" ? workMin : breakMin) * 60);
-                }}
+                onClick={stopAndReset}
               >
                 <StopCircle size={16} /> Reset
               </button>
@@ -240,6 +284,73 @@ export default function Planner() {
             <div className="mt-3 text-xs text-zinc-400">
               Long break every 4 sessions
             </div>
+            {running && activeFocus.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 justify-center max-w-sm">
+                {activeFocus.map((id) => {
+                  const tt = tasks.find((x) => x.id === id);
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/10 px-2 py-0.5 text-[11px]"
+                    >
+                      {tt?.title ?? id}
+                      <button
+                        className="text-zinc-400 hover:text-white"
+                        onClick={() => toggleFocusForTask(id)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            {!running && (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3 text-xs w-full max-w-sm">
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span>Focus Queue</span>
+                  <div className="flex gap-2">
+                    <button
+                      className="rounded-md px-2 py-1 bg-white/5 border border-white/10"
+                      onClick={clearQueue}
+                    >
+                      Clear
+                    </button>
+                    <button
+                      className="rounded-md px-2 py-1 bg-white text-black"
+                      onClick={startTimer}
+                    >
+                      Use Queue Now
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {focusQueue.length === 0 ? (
+                    <span className="text-zinc-500">
+                      Add tasks via “Focus”
+                    </span>
+                  ) : (
+                    focusQueue.map((id) => {
+                      const tt = tasks.find((x) => x.id === id);
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/10 px-2 py-0.5"
+                        >
+                          {tt?.title ?? id}
+                          <button
+                            className="text-zinc-400 hover:text-white"
+                            onClick={() => toggleFocusForTask(id)}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Log */}
@@ -349,6 +460,19 @@ export default function Planner() {
                       <Chip key={tag} label={tag} />
                     ))}
                   </div>
+                  <button
+                    className={`ml-auto text-[11px] rounded-md px-2 py-1 border ${
+                      inQueue(t.id)
+                        ? "bg-emerald-400 text-black border-emerald-300"
+                        : "bg-white/5 text-zinc-200 border-white/10"
+                    } flex items-center gap-1`}
+                    onClick={() => toggleFocusForTask(t.id)}
+                    title={
+                      inQueue(t.id) ? "Remove from Focus" : "Add to Focus"
+                    }
+                  >
+                    <Target size={12} /> {inQueue(t.id) ? "Focusing" : "Focus"}
+                  </button>
                 </div>
               ))}
             </div>

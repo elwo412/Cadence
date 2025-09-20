@@ -10,4 +10,5 @@ export interface Session {
   kind: "focus" | "break";
   minutes: number;
   completed: boolean;
+  taskIds?: string[];
 }
