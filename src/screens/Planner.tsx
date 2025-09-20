@@ -12,12 +12,17 @@ import {
   Check,
   Target,
 } from "lucide-react";
-import { Session, Task } from "../types";
+import { Session, Task, TimeBlock } from "../types";
 import { pad, todayISO, uuid } from "../lib/utils";
 import Ring from "../components/Ring";
 import Modal from "../components/Modal";
 import Chip from "../components/Chip";
 import LabelInput from "../components/LabelInput";
+import TodosView from "../components/tabs/TodosView";
+import TodayView from "../components/tabs/TodayView";
+import NotesView from "../components/tabs/NotesView";
+
+export type RightPane = "todos" | "today" | "notes";
 
 export default function Planner() {
   // Theme → dark glass + subtle red/green glows
@@ -58,10 +63,26 @@ export default function Planner() {
   const [showExport, setShowExport] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Right pane
+  const [rightPane, setRightPane] = useState<RightPane>("todos");
+  const [notes, setNotes] = useState("");
+  const [blocks, setBlocks] = useState<TimeBlock[]>([]);
+
   // Subtle LLM suggestion pane (simulated)
   const [suggestion, setSuggestion] = useState<string>(
     "Click the wand to tighten titles + add durations."
   );
+
+  // Load notes from local storage on mount
+  useEffect(() => {
+    const savedNotes = localStorage.getItem("cadence-notes");
+    if (savedNotes) setNotes(savedNotes);
+  }, []);
+
+  // Save notes to local storage on change
+  useEffect(() => {
+    localStorage.setItem("cadence-notes", notes);
+  }, [notes]);
 
   // --- Helper Fns ---
   const inQueue = (id: string) =>
@@ -127,6 +148,17 @@ export default function Planner() {
       if (mode === "focus") setActiveFocus([]);
     }
   }, [secs, running, mode, workMin, breakMin, activeFocus]);
+
+  // Hotkeys for tab switching
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "1") setRightPane("todos");
+      if (e.key === "2") setRightPane("today");
+      if (e.key === "3") setRightPane("notes");
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Reset on duration change
   useEffect(() => {
@@ -204,8 +236,21 @@ export default function Planner() {
         `- ${s.at} — ${s.kind} ${s.minutes}m ${s.completed ? "✅" : "⏸️"}${tasksNote}`
       );
     });
+
+    if (blocks.length > 0) {
+      lines.push("\n## Today\n");
+      blocks.forEach((b) => {
+        lines.push(`- ${b.start} (${b.duration}m) — ${b.label}`);
+      });
+    }
+
+    if (notes.trim()) {
+      lines.push("\n## Notes\n");
+      lines.push(notes.trim());
+    }
+
     return lines.join("\n");
-  }, [tasks, log]);
+  }, [tasks, log, blocks, notes]);
 
   return (
     <div
@@ -400,82 +445,41 @@ export default function Planner() {
 
         {/* Right: Todo + LLM assist */}
         <div className="flex-[1.1] grid grid-rows-[auto_1fr_auto] gap-4">
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 shadow-[0_0_110px_rgba(110,168,255,0.08)]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-zinc-200 font-medium">Today’s Todos</div>
+          <div className="flex items-center gap-2 rounded-3xl border border-white/10 bg-black/20 p-1">
+            {(["todos", "today", "notes"] as RightPane[]).map((p) => (
               <button
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10 flex items-center gap-2"
-                onClick={applyLLM}
+                key={p}
+                className={`flex-1 rounded-2xl px-3 py-2 text-sm capitalize ${
+                  rightPane === p
+                    ? "bg-white/10 text-white"
+                    : "text-zinc-400 hover:bg-white/5"
+                }`}
+                onClick={() => setRightPane(p)}
               >
-                <Wand2 size={16} /> Refine
+                {p}
               </button>
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={newTask}
-                onChange={(e) => setNewTask(e.target.value)}
-                placeholder="Add a task…"
-                className="flex-1 rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 outline-none"
-              />
-              <button
-                onClick={addTask}
-                className="rounded-xl bg-white text-black px-3 py-2 text-sm flex items-center gap-1"
-              >
-                <Plus size={16} /> Add
-              </button>
-            </div>
+            ))}
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 overflow-hidden">
-            <div className="grid gap-2 max-h-[56vh] overflow-auto pr-1">
-              {tasks.map((t) => (
-                <div
-                  key={t.id}
-                  className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2"
-                >
-                  <button
-                    onClick={() => toggleTask(t.id)}
-                    className={`h-5 w-5 rounded-md border ${
-                      t.done
-                        ? "bg-emerald-400 border-emerald-300"
-                        : "border-white/20 bg-white/0"
-                    } flex items-center justify-center`}
-                  >
-                    {t.done && <CheckSquare2 size={14} className="text-black" />}
-                  </button>
-                  <div
-                    className={`flex-1 text-sm ${
-                      t.done ? "line-through text-zinc-500" : "text-zinc-100"
-                    }`}
-                  >
-                    {t.title}
-                  </div>
-                  {t.est && (
-                    <span className="text-[11px] text-zinc-400 border border-white/10 rounded-md px-1.5 py-0.5">
-                      ~{t.est}m
-                    </span>
-                  )}
-                  <div className="hidden md:flex gap-1">
-                    {(t.tags || []).slice(0, 3).map((tag) => (
-                      <Chip key={tag} label={tag} />
-                    ))}
-                  </div>
-                  <button
-                    className={`ml-auto text-[11px] rounded-md px-2 py-1 border ${
-                      inQueue(t.id)
-                        ? "bg-emerald-400 text-black border-emerald-300"
-                        : "bg-white/5 text-zinc-200 border-white/10"
-                    } flex items-center gap-1`}
-                    onClick={() => toggleFocusForTask(t.id)}
-                    title={
-                      inQueue(t.id) ? "Remove from Focus" : "Add to Focus"
-                    }
-                  >
-                    <Target size={12} /> {inQueue(t.id) ? "Focusing" : "Focus"}
-                  </button>
-                </div>
-              ))}
-            </div>
+          <div className="grid gap-4">
+            {rightPane === "todos" && (
+              <TodosView
+                tasks={tasks}
+                newTask={newTask}
+                setNewTask={setNewTask}
+                addTask={addTask}
+                toggleTask={toggleTask}
+                applyLLM={applyLLM}
+                inQueue={inQueue}
+                toggleFocusForTask={toggleFocusForTask}
+              />
+            )}
+            {rightPane === "today" && (
+              <TodayView blocks={blocks} setBlocks={setBlocks} />
+            )}
+            {rightPane === "notes" && (
+              <NotesView notes={notes} setNotes={setNotes} />
+            )}
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 text-xs text-zinc-400 flex items-center justify-between">

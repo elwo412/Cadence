@@ -12,3 +12,9 @@ export interface Session {
   completed: boolean;
   taskIds?: string[];
 }
+export interface TimeBlock {
+  id: string;
+  label: string;
+  start: string;
+  duration: number;
+}
