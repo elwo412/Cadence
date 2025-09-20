@@ -190,53 +190,55 @@ export default function Planner() {
           </div>
 
           {/* Timer */}
-          <div className="mx-auto relative w-fit">
-            <div
-              className="absolute -inset-6 rounded-full blur-2xl opacity-40"
-              style={{
-                background:
-                  mode === "focus"
-                    ? "radial-gradient(60% 60% at 50% 50%, rgba(255,110,110,.25), transparent)"
-                    : "radial-gradient(60% 60% at 50% 50%, rgba(93,211,158,.25), transparent)",
-              }}
-            ></div>
-            <Ring progress={pct} theme={mode} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-5xl font-semibold tracking-tight">
-                {pad(Math.floor(secs / 60))}:{pad(secs % 60)}
+          <div className="flex flex-col items-center">
+            <div className="relative w-fit">
+              <div
+                className="absolute -inset-6 rounded-full blur-2xl opacity-40"
+                style={{
+                  background:
+                    mode === "focus"
+                      ? "radial-gradient(60% 60% at 50% 50%, rgba(255,110,110,.25), transparent)"
+                      : "radial-gradient(60% 60% at 50% 50%, rgba(93,211,158,.25), transparent)",
+                }}
+              ></div>
+              <Ring progress={pct} theme={mode} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="text-5xl font-semibold tracking-tight">
+                  {pad(Math.floor(secs / 60))}:{pad(secs % 60)}
+                </div>
+                <div className="mt-2 text-xs uppercase tracking-widest text-zinc-400">
+                  {mode === "focus" ? "FOCUS" : "BREAK"}
+                </div>
               </div>
-              <div className="mt-2 text-xs uppercase tracking-widest text-zinc-400">
-                {mode === "focus" ? "FOCUS" : "BREAK"}
-              </div>
-              <div className="mt-4 flex items-center gap-2">
-                {!running ? (
-                  <button
-                    className="rounded-xl bg-white text-black px-4 py-2 flex items-center gap-2 shadow"
-                    onClick={() => setRunning(true)}
-                  >
-                    <Play size={16} /> Start
-                  </button>
-                ) : (
-                  <button
-                    className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
-                    onClick={() => setRunning(false)}
-                  >
-                    <Pause size={16} /> Pause
-                  </button>
-                )}
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              {!running ? (
+                <button
+                  className="rounded-xl bg-white text-black px-4 py-2 flex items-center gap-2 shadow"
+                  onClick={() => setRunning(true)}
+                >
+                  <Play size={16} /> Start
+                </button>
+              ) : (
                 <button
                   className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
-                  onClick={() => {
-                    setRunning(false);
-                    setSecs((mode === "focus" ? workMin : breakMin) * 60);
-                  }}
+                  onClick={() => setRunning(false)}
                 >
-                  <StopCircle size={16} /> Reset
+                  <Pause size={16} /> Pause
                 </button>
-              </div>
-              <div className="mt-3 text-xs text-zinc-400">
-                Long break every 4 sessions
-              </div>
+              )}
+              <button
+                className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
+                onClick={() => {
+                  setRunning(false);
+                  setSecs((mode === "focus" ? workMin : breakMin) * 60);
+                }}
+              >
+                <StopCircle size={16} /> Reset
+              </button>
+            </div>
+            <div className="mt-3 text-xs text-zinc-400">
+              Long break every 4 sessions
             </div>
           </div>
 
