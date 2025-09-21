@@ -34,6 +34,7 @@ import UnscheduledTasks from "../components/UnscheduledTasks";
 import { useCalendarDnD } from "../hooks/useCalendarDnD";
 import { useTasks } from "../hooks/useTasks";
 import { useTimer } from "../hooks/useTimer";
+import SettingsModal from "../components/SettingsModal";
 
 export type RightPane = "todos" | "today" | "notes";
 
@@ -702,72 +703,17 @@ export default function Planner() {
           </ContextMenu>
         )}
 
-        {taskContextMenu && (
-          <ContextMenu
-            x={taskContextMenu.x}
-            y={taskContextMenu.y}
-            onClose={() => setTaskContextMenu(null)}
-          >
-            <ContextMenuItem
-              onClick={() => {
-                deleteTask(taskContextMenu.taskId);
-                setTaskContextMenu(null);
-              }}
-              destructive
-            >
-              Delete
-            </ContextMenuItem>
-          </ContextMenu>
-        )}
-
-        {/* Settings */}
-        <Modal
+        <SettingsModal
           open={showSettings}
           onClose={() => setShowSettings(false)}
-          title="Focus Settings"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <LabelInput
-              label="Focus minutes"
-              value={workMin}
-              setValue={setWorkMin}
-            />
-            <LabelInput
-              label="Break minutes"
-              value={breakMin}
-              setValue={setBreakMin}
-            />
-            <div className="col-span-2 flex items-center gap-2 mt-2">
-              <button
-                className={`rounded-md px-3 py-1.5 text-sm border ${
-                  mode === "focus"
-                    ? "bg-white text-black"
-                    : "bg-white/5 text-zinc-200 border-white/10"
-                }`}
-                onClick={() => {
-                  setMode("focus");
-                  setSecs(workMin * 60);
-                }}
-              >
-                Focus
-              </button>
-              <button
-                className={`rounded-md px-3 py-1.5 text-sm border ${
-                  mode === "break"
-                    ? "bg-white text-black"
-                    : "bg-white/5 text-zinc-200 border-white/10"
-                }`}
-                onClick={() => {
-                  setMode("break");
-                  setSecs(breakMin * 60);
-                }}
-              >
-                Break
-              </button>
-            </div>
-          </div>
-          <div slot="footer" />
-        </Modal>
+          workMin={workMin}
+          setWorkMin={setWorkMin}
+          breakMin={breakMin}
+          setBreakMin={setBreakMin}
+          mode={mode}
+          setMode={setMode}
+          setSecs={setSecs}
+        />
 
         {/* Export */}
         <Modal
