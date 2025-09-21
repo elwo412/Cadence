@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { Session } from "../types";
 
+export type TimerMode = "focus" | "break";
+
 export const useTimer = (
-  initialWorkMin = 25,
-  initialBreakMin = 5,
+  workMin: number,
+  breakMin: number,
   onSessionComplete: (session: Session) => void
 ) => {
-  const [mode, setMode] = useState<"focus" | "break">("focus");
+  const [mode, setMode] = useState<TimerMode>("focus");
   const [running, setRunning] = useState(false);
-  const [workMin, setWorkMin] = useState(initialWorkMin);
-  const [breakMin, setBreakMin] = useState(initialBreakMin);
   const [secs, setSecs] = useState(workMin * 60);
 
   const startTimer = () => setRunning(true);
@@ -57,10 +57,6 @@ export const useTimer = (
     mode,
     setMode,
     running,
-    workMin,
-    setWorkMin,
-    breakMin,
-    setBreakMin,
     secs,
     setSecs,
     startTimer,

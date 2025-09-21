@@ -32,7 +32,7 @@ import ContextMenu, { ContextMenuItem } from "../components/ContextMenu";
 import UnscheduledTasks from "../components/UnscheduledTasks";
 import { useCalendarDnD } from "../hooks/useCalendarDnD";
 import { useTasks } from "../hooks/useTasks";
-import { useTimer } from "../hooks/useTimer";
+import { TimerMode, useTimer } from "../hooks/useTimer";
 import SettingsModal from "../components/SettingsModal";
 import TaskComposer from "../components/TaskComposer";
 import { invoke } from "@tauri-apps/api/core";
@@ -47,6 +47,10 @@ export default function Planner() {
   const [activeFocus, setActiveFocus] = useState<string[]>([]);
   const [log, setLog] = useState<Session[]>([]);
 
+  // Timer state
+  const [workMin, setWorkMin] = useState(25);
+  const [breakMin, setBreakMin] = useState(5);
+
   useEffect(() => {
     const fetchBlocks = async () => {
       const fetchedBlocks = await invoke<DayBlock[]>("get_blocks_for_date", {
@@ -54,7 +58,17 @@ export default function Planner() {
       });
       setBlocks(fetchedBlocks);
     };
+    const fetchSettings = async () => {
+      const settings = await invoke<Record<string, string>>("get_settings");
+      if (settings.workMin) {
+        setWorkMin(Number(settings.workMin));
+      }
+      if (settings.breakMin) {
+        setBreakMin(Number(settings.breakMin));
+      }
+    };
     fetchBlocks();
+    fetchSettings();
   }, []);
 
   useEffect(() => {
@@ -76,17 +90,13 @@ export default function Planner() {
     mode,
     setMode,
     running,
-    workMin,
-    setWorkMin,
-    breakMin,
-    setBreakMin,
     secs,
     setSecs,
     startTimer,
     pauseTimer,
     stopAndReset,
     pct,
-  } = useTimer(25, 5, onSessionComplete);
+  } = useTimer(workMin, breakMin, onSessionComplete);
 
   const sensors = useSensors(
     useSensor(CustomPointerSensor, {
@@ -245,6 +255,13 @@ export default function Planner() {
 
   // Subtle LLM suggestion pane (simulated)
   const [suggestion] = useState<string | null>(null);
+
+  const handleSaveSettings = (newWorkMin: number, newBreakMin: number) => {
+    setWorkMin(newWorkMin);
+    setBreakMin(newBreakMin);
+    invoke("update_setting", { key: "workMin", value: String(newWorkMin) });
+    invoke("update_setting", { key: "breakMin", value: String(newBreakMin) });
+  };
 
   // Load notes from local storage on mount
   useEffect(() => {
@@ -738,9 +755,8 @@ export default function Planner() {
           open={showSettings}
           onClose={() => setShowSettings(false)}
           workMin={workMin}
-          setWorkMin={setWorkMin}
           breakMin={breakMin}
-          setBreakMin={setBreakMin}
+          onSave={handleSaveSettings}
           mode={mode}
           setMode={setMode}
           setSecs={setSecs}

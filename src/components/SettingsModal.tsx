@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import LabelInput from "./LabelInput";
+import { TimerMode } from "../hooks/useTimer";
 
 type SettingsModalProps = {
   open: boolean;
   onClose: () => void;
   workMin: number;
-  setWorkMin: (val: number) => void;
   breakMin: number;
-  setBreakMin: (val: number) => void;
-  mode: "focus" | "break";
-  setMode: (mode: "focus" | "break") => void;
+  onSave: (workMin: number, breakMin: number) => void;
+  mode: TimerMode;
+  setMode: (mode: TimerMode) => void;
   setSecs: (secs: number) => void;
 };
 
@@ -18,9 +18,8 @@ export default function SettingsModal({
   open,
   onClose,
   workMin,
-  setWorkMin,
   breakMin,
-  setBreakMin,
+  onSave,
   mode,
   setMode,
   setSecs,
@@ -38,8 +37,7 @@ export default function SettingsModal({
   }, [open, workMin, breakMin, mode]);
 
   const handleSave = () => {
-    setWorkMin(localWorkMin);
-    setBreakMin(localBreakMin);
+    onSave(localWorkMin, localBreakMin);
     setMode(localMode);
     setSecs(localMode === "focus" ? localWorkMin * 60 : localBreakMin * 60);
     onClose();
