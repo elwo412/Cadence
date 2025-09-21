@@ -3,6 +3,9 @@ import { Task } from "../types";
 import TaskRow from "./TaskRow";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Wand2 } from "lucide-react";
+import { useState } from "react";
+import { CompactAdd } from "./CompactAdd";
+import { parseLines } from "../lib/parsing";
 
 type DraggableTaskRowProps = {
   task: Task;
@@ -58,8 +61,9 @@ type UnscheduledTasksProps = {
   toggleTask: (id: string) => void;
   newTask: string;
   setNewTask: (task: string) => void;
-  addTask: () => void;
+  addTask: (tasks: any[]) => void;
   applyLLM: () => void;
+  onOpenComposer: () => void;
   onTaskContextMenu: (e: React.MouseEvent, taskId: string) => void;
 };
 
@@ -73,27 +77,22 @@ export default function UnscheduledTasks({
   setNewTask,
   addTask,
   applyLLM,
+  onOpenComposer,
   onTaskContextMenu,
 }: UnscheduledTasksProps) {
   const { setNodeRef } = useDroppable({ id: "unscheduled-tray" });
   return (
     <div ref={setNodeRef} className="h-full flex flex-col">
-      <div className="relative">
-        <input
-          type="text"
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addTask()}
-          placeholder="Add a task..."
-          className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-4 pr-20 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/80"
-        />
-        <button
-          onClick={addTask}
-          className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-1 text-xs"
-        >
-          Add
-        </button>
-      </div>
+      <CompactAdd
+        value={newTask}
+        setValue={setNewTask}
+        onAdd={(parsed) => {
+          addTask(parsed);
+          setNewTask("");
+        }}
+        onOpenComposer={onOpenComposer}
+        parsed={parseLines(newTask)}
+      />
       <div className="flex items-center justify-end gap-2 mt-2">
         <button
           className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10"

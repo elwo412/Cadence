@@ -1,33 +1,34 @@
 import { useState } from "react";
 import { Task } from "../types";
 import { uuid } from "../lib/utils";
+import { ParsedTask } from "../lib/parsing";
+import { refineTasks } from "../lib/llm";
+
+const roundTo = (n: number, to: number) => Math.round(n / to) * to;
 
 export const useTasks = () => {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: uuid(),
-      title: "Write daily plan",
-      est: 10,
-      tags: ["ritual"],
-      done: false,
-    },
-    {
-      id: uuid(),
-      title: "Deep work block",
-      est: 50,
-      tags: ["focus", "pomodoro"],
-      done: false,
-    },
-  ]);
-  const [newTask, setNewTask] = useState("");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [lastTasks, setLastTasks] = useState<Task[]>([]);
 
-  const addTask = () => {
-    if (!newTask.trim()) return;
-    setTasks((t) => [
-      { id: uuid(), title: newTask.trim(), tags: [], done: false },
-      ...t,
-    ]);
-    setNewTask("");
+  const addTask = (parsedTasks: ParsedTask[]) => {
+    setLastTasks(tasks);
+    const newTasks: Task[] = [];
+    for (const p of parsedTasks) {
+      for (let i = 0; i < (p.count ?? 1); i++) {
+        newTasks.push({
+          id: uuid(),
+          title: p.title,
+          tags: p.tags,
+          done: false,
+          est: p.est ? roundTo(p.est, 5) : undefined,
+        });
+      }
+    }
+    setTasks((t) => [...newTasks, ...t]);
+  };
+
+  const undo = () => {
+    setTasks(lastTasks);
   };
 
   const toggleTask = (id: string) =>
@@ -40,32 +41,16 @@ export const useTasks = () => {
   };
 
   const applyLLM = async () => {
-    // Simulate an LLM assist that adds durations & tags, and rephrases titles slightly
-    await new Promise((r) => setTimeout(r, 750));
-    setTasks((ts) =>
-      ts.map((t) => ({
-        ...t,
-        title: t.title.replace(/\b(Write|Do|Work on)\b/i, "Plan"),
-        est: t.est ?? (t.title.toLowerCase().includes("deep") ? 50 : 25),
-        tags: Array.from(
-          new Set([
-            ...(t.tags || []),
-            ...(t.title.toLowerCase().includes("deep")
-              ? ["deepwork"]
-              : ["ritual"]),
-          ])
-        ),
-      }))
-    );
+    const refined = await refineTasks(tasks);
+    setTasks(refined);
   };
 
   return {
     tasks,
-    newTask,
-    setNewTask,
     addTask,
     toggleTask,
     deleteTask,
     applyLLM,
+    undo,
   };
 };

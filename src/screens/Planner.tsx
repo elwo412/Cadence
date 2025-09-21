@@ -21,7 +21,6 @@ import { DayBlock, Session, Task } from "../types";
 import { pad, todayISO, uuid } from "../lib/utils";
 import Ring from "../components/Ring";
 import Modal from "../components/Modal";
-import LabelInput from "../components/LabelInput";
 import TodosView from "../components/tabs/TodosView";
 import TodayView from "../components/tabs/TodayView";
 import NotesView from "../components/tabs/NotesView";
@@ -35,6 +34,7 @@ import { useCalendarDnD } from "../hooks/useCalendarDnD";
 import { useTasks } from "../hooks/useTasks";
 import { useTimer } from "../hooks/useTimer";
 import SettingsModal from "../components/SettingsModal";
+import TaskComposer from "../components/TaskComposer";
 
 export type RightPane = "todos" | "today" | "notes";
 
@@ -51,15 +51,7 @@ function saveBlocksFor(date: string, b: DayBlock[]) {
 
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
-  const {
-    tasks,
-    newTask,
-    setNewTask,
-    addTask,
-    toggleTask,
-    deleteTask,
-    applyLLM,
-  } = useTasks();
+  const { tasks, addTask, toggleTask, applyLLM } = useTasks();
   const [blocks, setBlocks] = useState<DayBlock[]>(
     () => loadBlocksFor(todayISO()) || []
   );
@@ -216,18 +208,14 @@ export default function Planner() {
     blockId: string;
   } | null>(null);
 
-  const [taskContextMenu, setTaskContextMenu] = useState<{
-    x: number;
-    y: number;
-    taskId: string;
-  } | null>(null);
-
   // Focus / Queue
   const [focusQueue, setFocusQueue] = useState<string[]>([]);
+  const [newTask, setNewTask] = useState("");
 
   // Modals
   const [showExport, setShowExport] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTaskComposer, setShowTaskComposer] = useState(false);
 
   // Right pane
   const [rightPane, setRightPane] = useState<RightPane>("todos");
@@ -398,10 +386,7 @@ export default function Planner() {
                           "Tidied task titles, added estimates and tags (deepwork/ritual)."
                         );
                       }}
-                      onTaskContextMenu={(e, taskId) => {
-                        e.preventDefault();
-                        setTaskContextMenu({ x: e.clientX, y: e.clientY, taskId });
-                      }}
+                      onOpenComposer={() => setShowTaskComposer(true)}
                     />
                   </div>
                 </motion.div>
@@ -635,10 +620,7 @@ export default function Planner() {
                   }}
                   inQueue={inQueue}
                   toggleFocusForTask={toggleFocusForTask}
-                  onTaskContextMenu={(e, taskId) => {
-                    e.preventDefault();
-                    setTaskContextMenu({ x: e.clientX, y: e.clientY, taskId });
-                  }}
+                  onOpenComposer={() => setShowTaskComposer(true)}
                 />
               )}
               {rightPane === "today" && (
@@ -744,6 +726,10 @@ export default function Planner() {
           ) : null}
         </DragOverlay>
       </div>
+      <TaskComposer
+        open={showTaskComposer}
+        onClose={() => setShowTaskComposer(false)}
+      />
     </DndContext>
   );
 }
