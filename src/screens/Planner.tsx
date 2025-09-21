@@ -51,7 +51,7 @@ function saveBlocksFor(date: string, b: DayBlock[]) {
 
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
-  const { tasks, addTask, toggleTask, applyLLM } = useTasks();
+  const { tasks, addTask, toggleTask, deleteTask, applyLLM } = useTasks();
   const [blocks, setBlocks] = useState<DayBlock[]>(
     () => loadBlocksFor(todayISO()) || []
   );
@@ -206,6 +206,12 @@ export default function Planner() {
     x: number;
     y: number;
     blockId: string;
+  } | null>(null);
+
+  const [taskContextMenu, setTaskContextMenu] = useState<{
+    x: number;
+    y: number;
+    taskId: string;
   } | null>(null);
 
   // Focus / Queue
@@ -387,6 +393,14 @@ export default function Planner() {
                         );
                       }}
                       onOpenComposer={() => setShowTaskComposer(true)}
+                      onTaskContextMenu={(e, taskId) => {
+                        e.preventDefault();
+                        setTaskContextMenu({
+                          x: e.clientX,
+                          y: e.clientY,
+                          taskId,
+                        });
+                      }}
                     />
                   </div>
                 </motion.div>
@@ -612,15 +626,13 @@ export default function Planner() {
                   setNewTask={setNewTask}
                   addTask={addTask}
                   toggleTask={toggleTask}
-                  applyLLM={() => {
-                    applyLLM();
-                    setSuggestion(
-                      "Tidied task titles, added estimates and tags (deepwork/ritual)."
-                    );
-                  }}
                   inQueue={inQueue}
                   toggleFocusForTask={toggleFocusForTask}
                   onOpenComposer={() => setShowTaskComposer(true)}
+                  onTaskContextMenu={(e, taskId) => {
+                    e.preventDefault();
+                    setTaskContextMenu({ x: e.clientX, y: e.clientY, taskId });
+                  }}
                 />
               )}
               {rightPane === "today" && (
@@ -677,6 +689,24 @@ export default function Planner() {
               onClick={() => {
                 handleDeleteBlock(contextMenu.blockId);
                 setContextMenu(null);
+              }}
+              destructive
+            >
+              Delete
+            </ContextMenuItem>
+          </ContextMenu>
+        )}
+
+        {taskContextMenu && (
+          <ContextMenu
+            x={taskContextMenu.x}
+            y={taskContextMenu.y}
+            onClose={() => setTaskContextMenu(null)}
+          >
+            <ContextMenuItem
+              onClick={() => {
+                deleteTask(taskContextMenu.taskId);
+                setTaskContextMenu(null);
               }}
               destructive
             >

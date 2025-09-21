@@ -3,7 +3,6 @@ import { Task } from "../types";
 import TaskRow from "./TaskRow";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Wand2 } from "lucide-react";
-import { useState } from "react";
 import { CompactAdd } from "./CompactAdd";
 import { parseLines } from "../lib/parsing";
 
