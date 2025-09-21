@@ -19,6 +19,7 @@ import {
   SLOT_MIN,
 } from "../../lib/time";
 import { Trash2 } from "lucide-react";
+import { overlaps } from "../../lib/utils";
 
 const DroppableSlot = ({ time }: { time: number }) => {
   const { setNodeRef } = useDroppable({ id: `slot-${time}` });
@@ -42,10 +43,18 @@ const BlockCard = ({
   block,
   task,
   onDelete,
+  isOverlapping,
+  isSelected,
+  onClick,
+  onContextMenu,
 }: {
   block: DayBlock;
   task: Task | undefined;
   onDelete: (id: string) => void;
+  isOverlapping: boolean;
+  isSelected: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }) => {
   const dayStartMin = parseHHMM(DAY_START);
   const {
@@ -87,6 +96,7 @@ const BlockCard = ({
   return (
     <div
       ref={dndNodeRef}
+      onContextMenu={onContextMenu}
       className="absolute left-0 right-0"
       style={{
         top: ((block.startMin - dayStartMin) / SLOT_MIN) * SLOT_HEIGHT,
@@ -94,9 +104,16 @@ const BlockCard = ({
       }}
     >
       <div
+        onClick={onClick}
         {...dndListeners}
         {...DndAttributes}
-        className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 p-2 h-full text-xs cursor-grab relative"
+        className={`flex items-center gap-2 rounded-xl border bg-black/40 p-2 h-full text-xs cursor-grab relative ${
+          isOverlapping
+            ? "border-red-500/50"
+            : isSelected
+            ? "border-blue-400"
+            : "border-white/10"
+        } ${isSelected ? "shadow-lg shadow-blue-500/20" : ""}`}
       >
         <div
           ref={topResizeRef}
@@ -120,6 +137,11 @@ const BlockCard = ({
           {...bottomResizeAttributes}
           className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize z-10"
         />
+        {isOverlapping && (
+          <div className="absolute top-1 right-7 text-[9px] bg-red-500/50 text-white rounded-sm px-1 z-20">
+            Conflict
+          </div>
+        )}
       </div>
     </div>
   );
@@ -160,8 +182,12 @@ const TodayView = React.forwardRef<
     newBlock: DayBlock | null;
     activeBlock: DayBlock | null;
     onDeleteBlock: (id: string) => void;
+    selectedBlockIds: string[];
+    setSelectedBlockIds: (ids: string[]) => void;
+    scheduledTaskIds: Set<string>;
+    onContextMenu: (payload: { x: number; y: number; blockId: string }) => void;
   }
->(({ blocks, tasks, newBlock, activeBlock, onDeleteBlock }, ref) => {
+>(({ blocks, tasks, newBlock, activeBlock, onDeleteBlock, selectedBlockIds, setSelectedBlockIds, scheduledTaskIds, onContextMenu }, ref) => {
   const dayStartMin = useMemo(() => parseHHMM(DAY_START), []);
   const dayEndMin = useMemo(() => parseHHMM(DAY_END), []);
   const totalSlots = useMemo(
@@ -208,9 +234,26 @@ const TodayView = React.forwardRef<
     [gridDroppableRef, gridDraggableRef, ref]
   );
 
+  const handleBlockClick = (e: React.MouseEvent, blockId: string) => {
+    if (e.metaKey || e.ctrlKey) {
+      setSelectedBlockIds(
+        selectedBlockIds.includes(blockId)
+          ? selectedBlockIds.filter((id) => id !== blockId)
+          : [...selectedBlockIds, blockId]
+      );
+    } else {
+      setSelectedBlockIds([blockId]);
+    }
+  };
+
   const GhostBlock = () => {
     const blockToRender = newBlock || activeBlock;
     if (!blockToRender) return null;
+
+    const isOverlapping = blocks
+      .filter((b) => b.id !== blockToRender.id)
+      .some((other) => overlaps(blockToRender, other));
+
     return (
       <div
         className="absolute left-0 right-0 z-20"
@@ -219,7 +262,13 @@ const TodayView = React.forwardRef<
           height: (blockToRender.lengthMin / SLOT_MIN) * SLOT_HEIGHT,
         }}
       >
-        <div className="flex items-center gap-2 rounded-xl border border-dashed border-white/40 bg-white/10 p-2 h-full text-xs opacity-80">
+        <div
+          className={`flex items-center gap-2 rounded-xl border p-2 h-full text-xs opacity-80 bg-white/10 ${
+            isOverlapping
+              ? "border-red-500/50"
+              : "border-dashed border-white/40"
+          }`}
+        >
           {minsToHHMM(blockToRender.startMin)} -{" "}
           {minsToHHMM(blockToRender.startMin + blockToRender.lengthMin)} (
           {blockToRender.lengthMin}m)
@@ -305,14 +354,24 @@ const TodayView = React.forwardRef<
             {/* blocks overlay */}
             {blocks
               .filter((b) => b.id !== activeBlock?.id)
-              .map((b) => (
-                <BlockCard
-                  key={b.id}
-                  block={b}
-                  task={tasks.find((t) => t.id === b.taskId)}
-                  onDelete={onDeleteBlock}
-                />
-              ))}
+              .map((b) => {
+                const isOverlapping = blocks.some((other) => overlaps(b, other));
+                return (
+                  <BlockCard
+                    key={b.id}
+                    block={b}
+                    task={tasks.find((t) => t.id === b.taskId)}
+                    onDelete={onDeleteBlock}
+                    isOverlapping={isOverlapping}
+                    isSelected={selectedBlockIds.includes(b.id)}
+                    onClick={(e) => handleBlockClick(e, b.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      onContextMenu({ x: e.clientX, y: e.clientY, blockId: b.id });
+                    }}
+                  />
+                );
+              })}
           </div>
         </div>
       </div>

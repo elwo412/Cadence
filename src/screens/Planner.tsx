@@ -33,6 +33,7 @@ import {
   SLOT_MIN,
   DAY_START,
   DAY_END,
+  NUDGE_MIN,
 } from "../lib/time";
 import {
   clampStart,
@@ -45,6 +46,8 @@ import TaskRow from "../components/TaskRow";
 import { AnimatePresence, motion } from "framer-motion";
 import TaskListView from "../components/TaskListView";
 import { CustomPointerSensor } from "../lib/sensors";
+import ContextMenu, { ContextMenuItem } from "../components/ContextMenu";
+import UnscheduledTasks from "../components/UnscheduledTasks";
 
 export type RightPane = "todos" | "today" | "notes";
 
@@ -61,6 +64,26 @@ function saveBlocksFor(date: string, b: DayBlock[]) {
 
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
+  const [tasks, setTasks] = useState<Task[]>([
+    {
+      id: uuid(),
+      title: "Write daily plan",
+      est: 10,
+      tags: ["ritual"],
+      done: false,
+    },
+    {
+      id: uuid(),
+      title: "Deep work block",
+      est: 50,
+      tags: ["focus", "pomodoro"],
+      done: false,
+    },
+  ]);
+  const [blocks, setBlocks] = useState<DayBlock[]>(
+    () => loadBlocksFor(todayISO()) || []
+  );
+
   const sensors = useSensors(
     useSensor(CustomPointerSensor, {
       activationConstraint: {
@@ -200,6 +223,10 @@ export default function Planner() {
       setBlocks((b) => [...b, newB]);
     }
 
+    if (activeBlock && over?.id === "unscheduled-tray") {
+      handleDeleteBlock(activeBlock.id);
+    }
+
     setActiveTask(null);
     setActiveBlock(null);
     setNewBlock(null);
@@ -210,6 +237,90 @@ export default function Planner() {
   const handleDeleteBlock = (id: string) => {
     setBlocks((bs) => bs.filter((b) => b.id !== id));
   };
+
+  const handleDuplicateBlock = (id: string) => {
+    const block = blocks.find((b) => b.id === id);
+    if (block) {
+      const newBlock: DayBlock = {
+        ...block,
+        id: uuid(),
+        startMin: block.startMin + block.lengthMin,
+      };
+      setBlocks((bs) => [...bs, newBlock]);
+    }
+  };
+
+  const handleSplitBlock = (id: string) => {
+    const block = blocks.find((b) => b.id === id);
+    if (block && block.lengthMin >= SLOT_MIN * 2) {
+      const newLength = Math.floor(block.lengthMin / 2);
+      const newBlock1: DayBlock = { ...block, lengthMin: newLength };
+      const newBlock2: DayBlock = {
+        ...block,
+        id: uuid(),
+        startMin: block.startMin + newLength,
+        lengthMin: block.lengthMin - newLength,
+      };
+      setBlocks((bs) => [
+        ...bs.filter((b) => b.id !== id),
+        newBlock1,
+        newBlock2,
+      ]);
+    }
+  };
+
+  const scheduledTaskIds = useMemo(() => {
+    return new Set(blocks.map((b) => b.taskId));
+  }, [blocks]);
+
+  // Multi-select and keyboard shortcuts
+  const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Backspace" || e.key === "Delete") {
+        if (selectedBlockIds.length > 0) {
+          setBlocks((bs) => bs.filter((b) => !selectedBlockIds.includes(b.id)));
+          setSelectedBlockIds([]);
+        }
+      }
+
+      if (e.key.startsWith("Arrow")) {
+        e.preventDefault();
+        const step = e.shiftKey ? SLOT_MIN : NUDGE_MIN;
+        setBlocks((bs) =>
+          bs.map((b) => {
+            if (selectedBlockIds.includes(b.id)) {
+              if (e.altKey) {
+                // Resize mode
+                const newLength =
+                  e.key === "ArrowUp"
+                    ? b.lengthMin - step
+                    : b.lengthMin + step;
+                return { ...b, lengthMin: Math.max(SLOT_MIN, newLength) };
+              } else {
+                // Move mode
+                const newStart =
+                  e.key === "ArrowUp" || e.key === "ArrowLeft"
+                    ? b.startMin - step
+                    : b.startMin + step;
+                return { ...b, startMin: newStart };
+              }
+            }
+            return b;
+          })
+        );
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedBlockIds]);
+
+  // Context Menu
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    blockId: string;
+  } | null>(null);
 
   // Theme → dark glass + subtle red/green glows
   // Timer state
@@ -224,22 +335,6 @@ export default function Planner() {
   const [activeFocus, setActiveFocus] = useState<string[]>([]);
 
   // Todos
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: uuid(),
-      title: "Write daily plan",
-      est: 10,
-      tags: ["ritual"],
-      done: false,
-    },
-    {
-      id: uuid(),
-      title: "Deep work block",
-      est: 50,
-      tags: ["focus", "pomodoro"],
-      done: false,
-    },
-  ]);
   const [newTask, setNewTask] = useState("");
 
   // Sessions
@@ -252,9 +347,6 @@ export default function Planner() {
   // Right pane
   const [rightPane, setRightPane] = useState<RightPane>("todos");
   const [notes, setNotes] = useState("");
-  const [blocks, setBlocks] = useState<DayBlock[]>(
-    () => loadBlocksFor(todayISO()) || []
-  );
 
   // Subtle LLM suggestion pane (simulated)
   const [suggestion, setSuggestion] = useState<string>(
@@ -484,11 +576,9 @@ export default function Planner() {
                     <div className="text-zinc-300 text-sm">Tasks for Today</div>
                   </div>
                   <div className="h-[calc(100%-32px)] overflow-auto pr-1">
-                    <TaskListView
+                    <UnscheduledTasks
                       tasks={tasks}
-                      onToggle={toggleTask}
-                      inQueue={inQueue}
-                      onToggleFocus={toggleFocusForTask}
+                      scheduledTaskIds={scheduledTaskIds}
                     />
                   </div>
                 </motion.div>
@@ -727,6 +817,10 @@ export default function Planner() {
                   newBlock={newBlock}
                   activeBlock={activeBlock}
                   onDeleteBlock={handleDeleteBlock}
+                  selectedBlockIds={selectedBlockIds}
+                  setSelectedBlockIds={setSelectedBlockIds}
+                  scheduledTaskIds={scheduledTaskIds}
+                  onContextMenu={setContextMenu}
                 />
               )}
               {rightPane === "notes" && (
@@ -742,6 +836,40 @@ export default function Planner() {
             </div>
           </div>
         </div>
+
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+          >
+            <ContextMenuItem
+              onClick={() => {
+                handleDuplicateBlock(contextMenu.blockId);
+                setContextMenu(null);
+              }}
+            >
+              Duplicate
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                handleSplitBlock(contextMenu.blockId);
+                setContextMenu(null);
+              }}
+            >
+              Split
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                handleDeleteBlock(contextMenu.blockId);
+                setContextMenu(null);
+              }}
+              destructive
+            >
+              Delete
+            </ContextMenuItem>
+          </ContextMenu>
+        )}
 
         {/* Settings */}
         <Modal
