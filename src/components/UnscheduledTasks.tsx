@@ -4,7 +4,8 @@ import TaskRow from "./TaskRow";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Wand2 } from "lucide-react";
 import { CompactAdd } from "./CompactAdd";
-import { parseLines } from "../lib/parsing";
+import { ParsedTask, parseLines } from "../lib/parsing";
+import React from "react";
 
 type DraggableTaskRowProps = {
   task: Task;
@@ -58,10 +59,7 @@ type UnscheduledTasksProps = {
   inQueue: (id: string) => boolean;
   toggleFocusForTask: (id: string) => void;
   toggleTask: (id: string) => void;
-  newTask: string;
-  setNewTask: (task: string) => void;
-  addTask: (tasks: any[]) => void;
-  applyLLM: () => void;
+  addTask: (tasks: ParsedTask[]) => void;
   onOpenComposer: () => void;
   onTaskContextMenu: (e: React.MouseEvent, taskId: string) => void;
 };
@@ -72,14 +70,12 @@ export default function UnscheduledTasks({
   inQueue,
   toggleFocusForTask,
   toggleTask,
-  newTask,
-  setNewTask,
   addTask,
-  applyLLM,
   onOpenComposer,
   onTaskContextMenu,
 }: UnscheduledTasksProps) {
   const { setNodeRef } = useDroppable({ id: "unscheduled-tray" });
+  const [newTask, setNewTask] = React.useState("");
   return (
     <div ref={setNodeRef} className="h-full flex flex-col">
       <CompactAdd
@@ -95,7 +91,7 @@ export default function UnscheduledTasks({
       <div className="flex items-center justify-end gap-2 mt-2">
         <button
           className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10"
-          onClick={applyLLM}
+          // onClick={applyLLM}
         >
           <Wand2 size={14} /> Use AI Assistant
         </button>

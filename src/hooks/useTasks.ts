@@ -1,56 +1,53 @@
-import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
 import { Task } from "../types";
-import { uuid } from "../lib/utils";
 import { ParsedTask } from "../lib/parsing";
-import { refineTasks } from "../lib/llm";
-
-const roundTo = (n: number, to: number) => Math.round(n / to) * to;
 
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [lastTasks, setLastTasks] = useState<Task[]>([]);
 
-  const addTask = (parsedTasks: ParsedTask[]) => {
-    setLastTasks(tasks);
-    const newTasks: Task[] = [];
-    for (const p of parsedTasks) {
-      for (let i = 0; i < (p.count ?? 1); i++) {
-        newTasks.push({
-          id: uuid(),
-          title: p.title,
-          tags: p.tags,
-          done: false,
-          est: p.est ? roundTo(p.est, 5) : undefined,
-        });
-      }
+  const fetchTasks = async () => {
+    const fetchedTasks = await invoke<Task[]>("get_tasks");
+    setTasks(fetchedTasks);
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const addTask = async (task: Omit<Task, "id" | "done">) => {
+    const newTask = {
+      ...task,
+      id: crypto.randomUUID(),
+      done: false,
+    };
+    await invoke("add_task", { task: newTask });
+    await fetchTasks();
+  };
+
+  const updateTask = async (task: Task) => {
+    await invoke("update_task", { task });
+    await fetchTasks();
+  };
+
+  const toggleTask = async (id: string) => {
+    const task = tasks.find((t) => t.id === id);
+    if (task) {
+      await invoke("update_task", { task: { ...task, done: !task.done } });
+      await fetchTasks();
     }
-    setTasks((t) => [...newTasks, ...t]);
   };
 
-  const undo = () => {
-    setTasks(lastTasks);
-  };
-
-  const toggleTask = (id: string) =>
-    setTasks((ts) =>
-      ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-    );
-
-  const deleteTask = (id: string) => {
-    setTasks((ts) => ts.filter((t) => t.id !== id));
-  };
-
-  const applyLLM = async () => {
-    const refined = await refineTasks(tasks);
-    setTasks(refined);
+  const deleteTask = async (id: string) => {
+    await invoke("delete_task", { id });
+    await fetchTasks();
   };
 
   return {
     tasks,
     addTask,
+    updateTask,
     toggleTask,
     deleteTask,
-    applyLLM,
-    undo,
   };
 };

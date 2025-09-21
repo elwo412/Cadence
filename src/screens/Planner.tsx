@@ -18,13 +18,13 @@ import {
   DragOverlay,
 } from "@dnd-kit/core";
 import { DayBlock, Session, Task } from "../types";
-import { pad, todayISO, uuid } from "../lib/utils";
+import { pad, todayISO } from "../lib/utils";
 import Ring from "../components/Ring";
 import Modal from "../components/Modal";
 import TodosView from "../components/tabs/TodosView";
 import TodayView from "../components/tabs/TodayView";
 import NotesView from "../components/tabs/NotesView";
-import { minsToHHMM, NUDGE_MIN, SLOT_MIN } from "../lib/time";
+import { minsToHHMM, SLOT_MIN } from "../lib/time";
 import TaskRow from "../components/TaskRow";
 import { AnimatePresence, motion } from "framer-motion";
 import { CustomPointerSensor } from "../lib/sensors";
@@ -35,28 +35,31 @@ import { useTasks } from "../hooks/useTasks";
 import { useTimer } from "../hooks/useTimer";
 import SettingsModal from "../components/SettingsModal";
 import TaskComposer from "../components/TaskComposer";
+import { invoke } from "@tauri-apps/api/core";
+import { ParsedTask } from "../lib/parsing";
 
 export type RightPane = "todos" | "today" | "notes";
 
-function loadBlocksFor(date: string): DayBlock[] | null {
-  try {
-    return JSON.parse(localStorage.getItem("blocks:" + date) || "null");
-  } catch {
-    return null;
-  }
-}
-function saveBlocksFor(date: string, b: DayBlock[]) {
-  localStorage.setItem("blocks:" + date, JSON.stringify(b));
-}
-
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
-  const { tasks, addTask, toggleTask, deleteTask, applyLLM } = useTasks();
-  const [blocks, setBlocks] = useState<DayBlock[]>(
-    () => loadBlocksFor(todayISO()) || []
-  );
+  const { tasks, addTask, toggleTask, deleteTask } = useTasks();
+  const [blocks, setBlocks] = useState<DayBlock[]>([]);
   const [activeFocus, setActiveFocus] = useState<string[]>([]);
   const [log, setLog] = useState<Session[]>([]);
+
+  useEffect(() => {
+    const fetchBlocks = async () => {
+      const fetchedBlocks = await invoke<DayBlock[]>("get_blocks_for_date", {
+        date: todayISO(),
+      });
+      setBlocks(fetchedBlocks);
+    };
+    fetchBlocks();
+  }, []);
+
+  useEffect(() => {
+    invoke("save_blocks_for_date", { date: todayISO(), blocks });
+  }, [blocks]);
 
   const onSessionComplete = (session: Session) => {
     const sessionWithTasks = {
@@ -125,10 +128,12 @@ export default function Planner() {
   const handleDuplicateBlock = (id: string) => {
     const block = blocks.find((b) => b.id === id);
     if (block) {
+      const length = block.end_slot - block.start_slot;
       const newBlock: DayBlock = {
         ...block,
-        id: uuid(),
-        startMin: block.startMin + block.lengthMin,
+        id: crypto.randomUUID(),
+        start_slot: block.end_slot,
+        end_slot: block.end_slot + length,
       };
       setBlocks((bs) => [...bs, newBlock]);
     }
@@ -136,25 +141,29 @@ export default function Planner() {
 
   const handleSplitBlock = (id: string) => {
     const block = blocks.find((b) => b.id === id);
-    if (block && block.lengthMin >= SLOT_MIN * 2) {
-      const newLength = Math.floor(block.lengthMin / 2);
-      const newBlock1: DayBlock = { ...block, lengthMin: newLength };
-      const newBlock2: DayBlock = {
-        ...block,
-        id: uuid(),
-        startMin: block.startMin + newLength,
-        lengthMin: block.lengthMin - newLength,
-      };
-      setBlocks((bs) => [
-        ...bs.filter((b) => b.id !== id),
-        newBlock1,
-        newBlock2,
-      ]);
+    if (block) {
+      const length = block.end_slot - block.start_slot;
+      if (length >= 2) {
+        const splitPoint = block.start_slot + Math.floor(length / 2);
+        const newBlock1: DayBlock = { ...block, end_slot: splitPoint };
+        const newBlock2: DayBlock = {
+          ...block,
+          id: crypto.randomUUID(),
+          start_slot: splitPoint,
+        };
+        setBlocks((bs) => [
+          ...bs.filter((b) => b.id !== id),
+          newBlock1,
+          newBlock2,
+        ]);
+      }
     }
   };
 
   const scheduledTaskIds = useMemo(() => {
-    return new Set(blocks.map((b) => b.taskId));
+    return new Set(
+      blocks.map((b) => b.task_id).filter((id): id is string => id !== null)
+    );
   }, [blocks]);
 
   // Multi-select and keyboard shortcuts
@@ -172,24 +181,32 @@ export default function Planner() {
 
       if (e.key.startsWith("Arrow")) {
         e.preventDefault();
-        const step = e.shiftKey ? SLOT_MIN : NUDGE_MIN;
+        const step = e.shiftKey ? 2 : 1;
         setBlocks((bs) =>
           bs.map((b) => {
             if (selectedBlockIds.includes(b.id)) {
               if (e.altKey) {
                 // Resize mode
-                const newLength =
+                const new_end_slot =
                   e.key === "ArrowUp"
-                    ? b.lengthMin - step
-                    : b.lengthMin + step;
-                return { ...b, lengthMin: Math.max(SLOT_MIN, newLength) };
+                    ? b.end_slot - step
+                    : b.end_slot + step;
+                return {
+                  ...b,
+                  end_slot: Math.max(b.start_slot + 1, new_end_slot),
+                };
               } else {
                 // Move mode
-                const newStart =
+                const new_start_slot =
                   e.key === "ArrowUp" || e.key === "ArrowLeft"
-                    ? b.startMin - step
-                    : b.startMin + step;
-                return { ...b, startMin: newStart };
+                    ? b.start_slot - step
+                    : b.start_slot + step;
+                const length = b.end_slot - b.start_slot;
+                return {
+                  ...b,
+                  start_slot: new_start_slot,
+                  end_slot: new_start_slot + length,
+                };
               }
             }
             return b;
@@ -216,7 +233,6 @@ export default function Planner() {
 
   // Focus / Queue
   const [focusQueue, setFocusQueue] = useState<string[]>([]);
-  const [newTask, setNewTask] = useState("");
 
   // Modals
   const [showExport, setShowExport] = useState(false);
@@ -228,9 +244,7 @@ export default function Planner() {
   const [notes, setNotes] = useState("");
 
   // Subtle LLM suggestion pane (simulated)
-  const [suggestion, setSuggestion] = useState<string>(
-    "Click the wand to tighten titles + add durations."
-  );
+  const [suggestion] = useState<string | null>(null);
 
   // Load notes from local storage on mount
   useEffect(() => {
@@ -242,10 +256,6 @@ export default function Planner() {
   useEffect(() => {
     localStorage.setItem("cadence-notes", notes);
   }, [notes]);
-
-  useEffect(() => {
-    saveBlocksFor(todayISO(), blocks);
-  }, [blocks]);
 
   // --- Helper Fns ---
   const inQueue = (id: string) =>
@@ -304,7 +314,7 @@ export default function Planner() {
       const tagStr = (t.tags || []).map((x) => `#${x}`).join(" ");
       lines.push(
         `- [${t.done ? "x" : " "}] ${t.title} ${
-          t.est ? `(~${t.est}m)` : ""
+          t.est_minutes ? `(~${t.est_minutes}m)` : ""
         } ${tagStr}`.trim()
       );
     });
@@ -325,11 +335,13 @@ export default function Planner() {
       lines.push("\n## Today\n");
       blocks
         .slice() // ensure order by start time
-        .sort((a, b) => a.startMin - b.startMin)
+        .sort((a, b) => a.start_slot - b.start_slot)
         .forEach((b) => {
-          const t = tasks.find((x) => x.id === b.taskId);
+          const t = tasks.find((x) => x.id === b.task_id);
+          const startMin = b.start_slot * SLOT_MIN;
+          const lengthMin = (b.end_slot - b.start_slot) * SLOT_MIN;
           lines.push(
-            `- ${minsToHHMM(b.startMin)} (${b.lengthMin}m): **${
+            `- ${minsToHHMM(startMin)} (${lengthMin}m): **${
               t?.title ?? "Untitled"
             }**`
           );
@@ -343,6 +355,21 @@ export default function Planner() {
 
     return lines.join("\n");
   }, [tasks, log, blocks, notes]);
+
+  const onTaskCreate = (parsedTasks: ParsedTask[]) => {
+    for (const p of parsedTasks) {
+      for (let i = 0; i < (p.count ?? 1); i++) {
+        addTask({
+          title: p.title,
+          tags: p.tags,
+          est_minutes: p.est ?? 0,
+          notes: null,
+          project: null,
+        });
+      }
+    }
+    setShowTaskComposer(false);
+  };
 
   return (
     <DndContext
@@ -383,15 +410,7 @@ export default function Planner() {
                       inQueue={inQueue}
                       toggleFocusForTask={toggleFocusForTask}
                       toggleTask={toggleTask}
-                      newTask={newTask}
-                      setNewTask={setNewTask}
-                      addTask={addTask}
-                      applyLLM={() => {
-                        applyLLM();
-                        setSuggestion(
-                          "Tidied task titles, added estimates and tags (deepwork/ritual)."
-                        );
-                      }}
+                      addTask={(p) => onTaskCreate(p)}
                       onOpenComposer={() => setShowTaskComposer(true)}
                       onTaskContextMenu={(e, taskId) => {
                         e.preventDefault();
@@ -622,12 +641,10 @@ export default function Planner() {
               {rightPane === "todos" && (
                 <TodosView
                   tasks={tasks}
-                  newTask={newTask}
-                  setNewTask={setNewTask}
-                  addTask={addTask}
                   toggleTask={toggleTask}
                   inQueue={inQueue}
                   toggleFocusForTask={toggleFocusForTask}
+                  addTask={(p) => onTaskCreate(p)}
                   onOpenComposer={() => setShowTaskComposer(true)}
                   onTaskContextMenu={(e, taskId) => {
                     e.preventDefault();
@@ -655,7 +672,9 @@ export default function Planner() {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 text-xs text-zinc-400 flex items-center justify-between">
-              <div>{suggestion}</div>
+              <div>
+                {suggestion || "Click the wand to tighten titles + add durations."}
+              </div>
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-emerald-400" /> Ready
               </div>
@@ -759,6 +778,7 @@ export default function Planner() {
       <TaskComposer
         open={showTaskComposer}
         onClose={() => setShowTaskComposer(false)}
+        onCreate={onTaskCreate}
       />
     </DndContext>
   );

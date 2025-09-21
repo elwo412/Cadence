@@ -6,8 +6,6 @@ import { ParsedTask, parseLines } from "../../lib/parsing";
 
 export default function TodosView({
   tasks,
-  newTask,
-  setNewTask,
   addTask,
   toggleTask,
   inQueue,
@@ -16,8 +14,6 @@ export default function TodosView({
   onTaskContextMenu,
 }: {
   tasks: Task[];
-  newTask: string;
-  setNewTask: (s: string) => void;
   addTask: (tasks: ParsedTask[]) => void;
   toggleTask: (id: string) => void;
   inQueue: (id: string) => boolean;
@@ -25,6 +21,7 @@ export default function TodosView({
   onOpenComposer: () => void;
   onTaskContextMenu: (e: React.MouseEvent, taskId: string) => void;
 }) {
+  const [newTask, setNewTask] = React.useState("");
   return (
     <>
       <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 shadow-[0_0_110px_rgba(110,168,255,0.08)]">

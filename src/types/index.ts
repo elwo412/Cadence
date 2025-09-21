@@ -1,9 +1,11 @@
 export interface Task {
   id: string;
   title: string;
-  est?: number;
-  tags: string[];
-  done?: boolean;
+  done: boolean;
+  est_minutes: number;
+  notes: string | null;
+  project: string | null;
+  tags: string[] | null;
 }
 export interface Session {
   at: string;
@@ -14,7 +16,8 @@ export interface Session {
 }
 export interface DayBlock {
   id: string;
-  taskId: string; // bind to Task
-  startMin: number; // minutes from midnight
-  lengthMin: number; // duration in minutes (multiple of SLOT_MIN)
+  task_id: string | null;
+  date: string;
+  start_slot: number;
+  end_slot: number;
 }

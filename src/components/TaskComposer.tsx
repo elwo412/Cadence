@@ -3,10 +3,12 @@ import { BrainCircuit, List, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../lib/utils";
 import Modal from "./Modal";
+import { ParsedTask, parseLines } from "../lib/parsing";
 
 type TaskComposerProps = {
   open: boolean;
   onClose: () => void;
+  onCreate: (tasks: ParsedTask[]) => void;
 };
 
 type Tab = "quick" | "multi" | "refine";
@@ -29,10 +31,26 @@ const TabButton = ({
   </button>
 );
 
-export default function TaskComposer({ open, onClose }: TaskComposerProps) {
+export default function TaskComposer({
+  open,
+  onClose,
+  onCreate,
+}: TaskComposerProps) {
   const [tab, setTab] = useState<Tab>("quick");
   const [quickInput, setQuickInput] = useState("");
   const [multiInput, setMultiInput] = useState("");
+
+  const handleCreate = () => {
+    let parsed: ParsedTask[] = [];
+    if (tab === "quick") {
+      parsed = parseLines(quickInput);
+    } else if (tab === "multi") {
+      parsed = parseLines(multiInput);
+    }
+    onCreate(parsed);
+    setQuickInput("");
+    setMultiInput("");
+  };
 
   return (
     <Modal
@@ -115,7 +133,10 @@ export default function TaskComposer({ open, onClose }: TaskComposerProps) {
           >
             Cancel
           </button>
-          <button className="rounded-lg px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700">
+          <button
+            onClick={handleCreate}
+            className="rounded-lg px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700"
+          >
             Accept
           </button>
         </div>
