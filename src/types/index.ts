@@ -12,9 +12,9 @@ export interface Session {
   completed: boolean;
   taskIds?: string[];
 }
-export interface TimeBlock {
+export interface DayBlock {
   id: string;
-  label: string;
-  start: string;
-  duration: number;
+  taskId: string; // bind to Task
+  startMin: number; // minutes from midnight
+  lengthMin: number; // duration in minutes (multiple of SLOT_MIN)
 }
