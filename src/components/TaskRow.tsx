@@ -9,16 +9,26 @@ type TaskRowProps = {
   inQueue?: (id: string) => boolean;
   onToggleFocus?: (id: string) => void;
   interactive?: boolean;
+  onContextMenu?: (e: React.MouseEvent) => void;
 };
 
 const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
   (
-    { task, onToggle, inQueue, onToggleFocus, interactive = true, ...props },
+    {
+      task,
+      onToggle,
+      inQueue,
+      onToggleFocus,
+      interactive = true,
+      onContextMenu,
+      ...props
+    },
     ref
   ) => {
     return (
       <div
         ref={ref}
+        onContextMenu={onContextMenu}
         {...props}
         className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2 cursor-grab"
       >

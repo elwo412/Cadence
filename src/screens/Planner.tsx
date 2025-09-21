@@ -11,13 +11,11 @@ import {
 import {
   DndContext,
   DragEndEvent,
-  DragMoveEvent,
-  DragOverEvent,
-  DragOverlay,
   DragStartEvent,
   useSensor,
   useSensors,
   closestCenter,
+  DragOverlay,
 } from "@dnd-kit/core";
 import { DayBlock, Session, Task } from "../types";
 import { pad, todayISO, uuid } from "../lib/utils";
@@ -52,8 +50,15 @@ function saveBlocksFor(date: string, b: DayBlock[]) {
 
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
-  const { tasks, newTask, setNewTask, addTask, toggleTask, applyLLM } =
-    useTasks();
+  const {
+    tasks,
+    newTask,
+    setNewTask,
+    addTask,
+    toggleTask,
+    deleteTask,
+    applyLLM,
+  } = useTasks();
   const [blocks, setBlocks] = useState<DayBlock[]>(
     () => loadBlocksFor(todayISO()) || []
   );
@@ -208,6 +213,12 @@ export default function Planner() {
     x: number;
     y: number;
     blockId: string;
+  } | null>(null);
+
+  const [taskContextMenu, setTaskContextMenu] = useState<{
+    x: number;
+    y: number;
+    taskId: string;
   } | null>(null);
 
   // Focus / Queue
@@ -368,12 +379,28 @@ export default function Planner() {
                   className="h-full"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className="text-zinc-300 text-sm">Tasks for Today</div>
+                    <div className="text-zinc-300 text-sm">Plan Today</div>
                   </div>
                   <div className="h-[calc(100%-32px)] overflow-auto pr-1">
                     <UnscheduledTasks
                       tasks={tasks}
                       scheduledTaskIds={scheduledTaskIds}
+                      inQueue={inQueue}
+                      toggleFocusForTask={toggleFocusForTask}
+                      toggleTask={toggleTask}
+                      newTask={newTask}
+                      setNewTask={setNewTask}
+                      addTask={addTask}
+                      applyLLM={() => {
+                        applyLLM();
+                        setSuggestion(
+                          "Tidied task titles, added estimates and tags (deepwork/ritual)."
+                        );
+                      }}
+                      onTaskContextMenu={(e, taskId) => {
+                        e.preventDefault();
+                        setTaskContextMenu({ x: e.clientX, y: e.clientY, taskId });
+                      }}
                     />
                   </div>
                 </motion.div>
@@ -607,6 +634,10 @@ export default function Planner() {
                   }}
                   inQueue={inQueue}
                   toggleFocusForTask={toggleFocusForTask}
+                  onTaskContextMenu={(e, taskId) => {
+                    e.preventDefault();
+                    setTaskContextMenu({ x: e.clientX, y: e.clientY, taskId });
+                  }}
                 />
               )}
               {rightPane === "today" && (
@@ -663,6 +694,24 @@ export default function Planner() {
               onClick={() => {
                 handleDeleteBlock(contextMenu.blockId);
                 setContextMenu(null);
+              }}
+              destructive
+            >
+              Delete
+            </ContextMenuItem>
+          </ContextMenu>
+        )}
+
+        {taskContextMenu && (
+          <ContextMenu
+            x={taskContextMenu.x}
+            y={taskContextMenu.y}
+            onClose={() => setTaskContextMenu(null)}
+          >
+            <ContextMenuItem
+              onClick={() => {
+                deleteTask(taskContextMenu.taskId);
+                setTaskContextMenu(null);
               }}
               destructive
             >

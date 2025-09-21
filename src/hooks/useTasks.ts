@@ -35,6 +35,10 @@ export const useTasks = () => {
       ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
     );
 
+  const deleteTask = (id: string) => {
+    setTasks((ts) => ts.filter((t) => t.id !== id));
+  };
+
   const applyLLM = async () => {
     // Simulate an LLM assist that adds durations & tags, and rephrases titles slightly
     await new Promise((r) => setTimeout(r, 750));
@@ -61,6 +65,7 @@ export const useTasks = () => {
     setNewTask,
     addTask,
     toggleTask,
+    deleteTask,
     applyLLM,
   };
 };

@@ -12,6 +12,7 @@ export default function TodosView({
   applyLLM,
   inQueue,
   toggleFocusForTask,
+  onTaskContextMenu,
 }: {
   tasks: Task[];
   newTask: string;
@@ -21,6 +22,7 @@ export default function TodosView({
   applyLLM: () => void;
   inQueue: (id: string) => boolean;
   toggleFocusForTask: (id: string) => void;
+  onTaskContextMenu: (e: React.MouseEvent, taskId: string) => void;
 }) {
   return (
     <>
@@ -57,6 +59,7 @@ export default function TodosView({
             onToggle={toggleTask}
             inQueue={inQueue}
             onToggleFocus={toggleFocusForTask}
+            onTaskContextMenu={onTaskContextMenu}
           />
         </div>
       </div>
