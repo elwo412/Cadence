@@ -2,7 +2,7 @@
 
 Cadence is a modern daily planner and focus timer application built for the desktop. It helps you organize your tasks, schedule your day, and stay focused using a Pomodoro-style timer.
 
-![Cadence Screenshot](https://i.imgur.com/example.png)
+<img width="1915" height="1131" alt="image" src="https://github.com/user-attachments/assets/712699c1-e2a4-46db-b29d-6db260e8ca6e" />
 
 ## Features
 
