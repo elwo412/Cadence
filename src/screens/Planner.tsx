@@ -848,7 +848,6 @@ export default function Planner() {
                   onDeleteBlock={handleDeleteBlock}
                   selectedBlockIds={selectedBlockIds}
                   setSelectedBlockIds={setSelectedBlockIds}
-                  scheduledTaskIds={scheduledTaskIds}
                   onContextMenu={setContextMenu}
                 />
               )}
