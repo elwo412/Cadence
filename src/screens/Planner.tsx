@@ -1,37 +1,50 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Play,
   Pause,
   StopCircle,
   Clock,
-  CheckSquare2,
-  Plus,
-  Wand2,
   FileDown,
   Settings,
   Check,
-  Target,
 } from "lucide-react";
 import {
   DndContext,
   DragEndEvent,
+  DragMoveEvent,
   DragOverlay,
   DragStartEvent,
-  PointerSensor,
   useSensor,
   useSensors,
+  closestCenter,
 } from "@dnd-kit/core";
 import { DayBlock, Session, Task } from "../types";
 import { pad, todayISO, uuid } from "../lib/utils";
 import Ring from "../components/Ring";
 import Modal from "../components/Modal";
-import Chip from "../components/Chip";
 import LabelInput from "../components/LabelInput";
 import TodosView from "../components/tabs/TodosView";
 import TodayView from "../components/tabs/TodayView";
 import NotesView from "../components/tabs/NotesView";
-import { minsToHHMM, roundToSlot } from "../lib/time";
+import {
+  minsToHHMM,
+  parseHHMM,
+  roundToSlot,
+  SLOT_MIN,
+  DAY_START,
+  DAY_END,
+} from "../lib/time";
+import {
+  clampStart,
+  GridMetrics,
+  roundTo,
+  slotHeightPx,
+  yToMinutes,
+} from "../lib/timeGrid";
 import TaskRow from "../components/TaskRow";
+import { AnimatePresence, motion } from "framer-motion";
+import TaskListView from "../components/TaskListView";
+import { CustomPointerSensor } from "../lib/sensors";
 
 export type RightPane = "todos" | "today" | "notes";
 
@@ -47,46 +60,157 @@ function saveBlocksFor(date: string, b: DayBlock[]) {
 }
 
 export default function Planner() {
+  const gridRef = useRef<HTMLDivElement>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(CustomPointerSensor, {
       activationConstraint: {
-        distance: 10,
+        distance: 8,
       },
     })
   );
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
+  // State for calendar DnD
+  const [newBlock, setNewBlock] = useState<DayBlock | null>(null);
+  const [activeBlock, setActiveBlock] = useState<DayBlock | null>(null);
+  const [resizeMode, setResizeMode] = useState<"top" | "bottom" | null>(null);
+  const dragInfo = useRef<{
+    startMin: number;
+    lengthMin: number;
+    grabOffsetMin: number;
+    metrics: GridMetrics;
+  } | null>(null);
+
   const handleDragStart = (event: DragStartEvent) => {
-    if (event.active.data.current?.type === "TASK") {
-      setActiveTask(event.active.data.current.task);
+    const { active } = event;
+    const { current } = active.data;
+    const type = current?.type;
+
+    if (!gridRef.current) return;
+
+    const metrics: GridMetrics = {
+      el: gridRef.current,
+      dayStartMin: parseHHMM(DAY_START),
+      dayEndMin: parseHHMM(DAY_END),
+      totalSlots:
+        (parseHHMM(DAY_END) - parseHHMM(DAY_START)) / SLOT_MIN,
+    };
+
+    const startY = (event.activatorEvent as PointerEvent).clientY;
+    const startMin = yToMinutes(startY, metrics);
+
+    if (type === "BLOCK_MOVE" || type?.startsWith("BLOCK_RESIZE")) {
+      const block = current.block as DayBlock;
+      setActiveBlock(block);
+      dragInfo.current = {
+        startMin: block.startMin,
+        lengthMin: block.lengthMin,
+        grabOffsetMin: startMin - block.startMin,
+        metrics,
+      };
+
+      if (type === "BLOCK_RESIZE_TOP") setResizeMode("top");
+      if (type === "BLOCK_RESIZE_BOTTOM") setResizeMode("bottom");
+    } else if (type === "TASK") {
+      setActiveTask(current.task);
+    } else if (active.id === "grid-creator") {
+      const snappedStart = roundTo(startMin, SLOT_MIN);
+      const newB: DayBlock = {
+        id: "NEW_BLOCK",
+        taskId: tasks[0]?.id || "temp",
+        startMin: snappedStart,
+        lengthMin: SLOT_MIN,
+      };
+      setNewBlock(newB);
+      dragInfo.current = {
+        startMin: newB.startMin,
+        lengthMin: newB.lengthMin,
+        grabOffsetMin: 0,
+        metrics,
+      };
+    }
+  };
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    const { delta, activatorEvent } = event;
+    if (!dragInfo.current) return;
+
+    const { metrics, startMin, lengthMin, grabOffsetMin } = dragInfo.current;
+    const step = (activatorEvent as PointerEvent).altKey ? 5 : SLOT_MIN;
+
+    const initialY = (activatorEvent as PointerEvent).clientY;
+    const currentY = initialY + delta.y;
+    const currentMin = yToMinutes(currentY, metrics);
+
+    if (newBlock) {
+      const newLength = roundTo(currentMin - newBlock.startMin, step);
+      if (newLength >= SLOT_MIN) {
+        setNewBlock({ ...newBlock, lengthMin: newLength });
+      }
+    } else if (activeBlock) {
+      if (resizeMode === "top") {
+        const snappedMin = roundTo(currentMin, step);
+        const endMin = startMin + lengthMin;
+        const newStart = clampStart(snappedMin, SLOT_MIN, metrics);
+        const newLength = endMin - newStart;
+        if (newLength >= SLOT_MIN) {
+          setActiveBlock({
+            ...activeBlock,
+            startMin: newStart,
+            lengthMin: newLength,
+          });
+        }
+      } else if (resizeMode === "bottom") {
+        const newLength = roundTo(currentMin - activeBlock.startMin, step);
+        if (newLength >= SLOT_MIN) {
+          setActiveBlock({ ...activeBlock, lengthMin: newLength });
+        }
+      } else {
+        const snappedMin = roundTo(currentMin - grabOffsetMin, step);
+        const newStart = clampStart(snappedMin, lengthMin, metrics);
+        setActiveBlock({ ...activeBlock, startMin: newStart });
+      }
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    setActiveTask(null);
     const { active, over } = event;
 
-    if (!over) return;
-
-    const activeIsTask = active.data.current?.type === "TASK";
-    const overIsSlot = String(over.id).startsWith("slot-");
-
-    if (activeIsTask && overIsSlot) {
+    if (newBlock) {
+      const finalBlock = { ...newBlock, id: uuid() };
+      setBlocks((bs) => [...bs, finalBlock]);
+    } else if (activeBlock) {
+      setBlocks((bs) =>
+        bs.map((b) => (b.id === activeBlock.id ? activeBlock : b))
+      );
+    } else if (
+      over &&
+      active.data.current?.type === "TASK" &&
+      String(over.id).startsWith("slot-")
+    ) {
       const task = active.data.current.task;
       const startMin = Number(String(over.id).replace("slot-", ""));
-
       const lengthMin = roundToSlot(Math.max(30, task.est ?? 30));
-
-      const newBlock: DayBlock = {
+      const newB: DayBlock = {
         id: uuid(),
         taskId: task.id,
         startMin: startMin,
         lengthMin: lengthMin,
       };
-
-      setBlocks((b) => [...b, newBlock]);
+      setBlocks((b) => [...b, newB]);
     }
+
+    setActiveTask(null);
+    setActiveBlock(null);
+    setNewBlock(null);
+    setResizeMode(null);
+    dragInfo.current = null;
   };
+
+  const handleDeleteBlock = (id: string) => {
+    setBlocks((bs) => bs.filter((b) => b.id !== id));
+  };
+
   // Theme → dark glass + subtle red/green glows
   // Timer state
   const [mode, setMode] = useState<"focus" | "break">("focus");
@@ -234,8 +358,6 @@ export default function Planner() {
   }, [workMin, breakMin, mode]);
 
   const pct = 1 - secs / ((mode === "focus" ? workMin : breakMin) * 60);
-  const mm = pad(Math.floor(secs / 60));
-  const ss = pad(secs % 60);
 
   // Task ops
   const addTask = () => {
@@ -314,9 +436,10 @@ export default function Planner() {
         .sort((a, b) => a.startMin - b.startMin)
         .forEach((b) => {
           const t = tasks.find((x) => x.id === b.taskId);
-          const start = minsToHHMM(b.startMin);
           lines.push(
-            `- ${start} (${b.lengthMin}m): **${t?.title ?? "(untitled)"}**`
+            `- ${minsToHHMM(b.startMin)} (${b.lengthMin}m): **${
+              t?.title ?? "Untitled"
+            }**`
           );
         });
     }
@@ -333,7 +456,9 @@ export default function Planner() {
     <DndContext
       sensors={sensors}
       onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
+      collisionDetection={closestCenter}
     >
       <div
         className="h-screen w-screen text-white"
@@ -345,184 +470,222 @@ export default function Planner() {
         <div className="h-full w-full px-6 py-5 flex gap-6">
           {/* Left: Timer Card */}
           <div className="flex-[0.9] rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 relative shadow-[0_0_110px_rgba(255,110,110,0.08)]">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-zinc-300 text-sm">Daily Planner</div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10 flex items-center gap-2"
-                  onClick={() => setShowSettings(true)}
+            <AnimatePresence mode="wait">
+              {rightPane === "today" ? (
+                <motion.div
+                  key="task-list"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="h-full"
                 >
-                  <Settings size={16} /> Settings
-                </button>
-                <button
-                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10 flex items-center gap-2"
-                  onClick={() => setShowExport(true)}
-                >
-                  <FileDown size={16} /> Export
-                </button>
-              </div>
-            </div>
-
-            {/* Timer */}
-            <div className="flex flex-col items-center">
-              <div className="relative w-fit">
-                <div
-                  className="absolute -inset-6 rounded-full blur-2xl opacity-40"
-                  style={{
-                    background:
-                      mode === "focus"
-                        ? "radial-gradient(60% 60% at 50% 50%, rgba(255,110,110,.25), transparent)"
-                        : "radial-gradient(60% 60% at 50% 50%, rgba(93,211,158,.25), transparent)",
-                  }}
-                ></div>
-                <Ring progress={pct} theme={mode} />
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-semibold tracking-tight">
-                    {pad(Math.floor(secs / 60))}:{pad(Math.floor(secs) % 60)}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-zinc-300 text-sm">Tasks for Today</div>
                   </div>
-                  <div className="mt-2 text-xs uppercase tracking-widest text-zinc-400">
-                    {mode === "focus" ? "FOCUS" : "BREAK"}
+                  <div className="h-[calc(100%-32px)] overflow-auto pr-1">
+                    <TaskListView
+                      tasks={tasks}
+                      onToggle={toggleTask}
+                      inQueue={inQueue}
+                      onToggleFocus={toggleFocusForTask}
+                    />
                   </div>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center gap-2">
-                {!running ? (
-                  <button
-                    className="rounded-xl bg-white text-black px-4 py-2 flex items-center gap-2 shadow"
-                    onClick={startTimer}
-                  >
-                    <Play size={16} /> Start
-                  </button>
-                ) : (
-                  <button
-                    className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
-                    onClick={() => setRunning(false)}
-                  >
-                    <Pause size={16} /> Pause
-                  </button>
-                )}
-                <button
-                  className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
-                  onClick={stopAndReset}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="timer-view"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <StopCircle size={16} /> Reset
-                </button>
-              </div>
-              <div className="mt-3 text-xs text-zinc-400">
-                Long break every 4 sessions
-              </div>
-              {running && activeFocus.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 justify-center max-w-sm">
-                  {activeFocus.map((id) => {
-                    const tt = tasks.find((x) => x.id === id);
-                    return (
-                      <span
-                        key={id}
-                        className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/10 px-2 py-0.5 text-[11px]"
-                      >
-                        {tt?.title ?? id}
-                        <button
-                          className="text-zinc-400 hover:text-white"
-                          onClick={() => toggleFocusForTask(id)}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-              {!running && (
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3 text-xs w-full max-w-sm">
-                  <div className="flex items-center justify-between text-zinc-300">
-                    <span>Focus Queue</span>
-                    <div className="flex gap-2">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-zinc-300 text-sm">Daily Planner</div>
+                    <div className="flex items-center gap-2">
                       <button
-                        className="rounded-md px-2 py-1 bg-white/5 border border-white/10"
-                        onClick={clearQueue}
+                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10 flex items-center gap-2"
+                        onClick={() => setShowSettings(true)}
                       >
-                        Clear
+                        <Settings size={16} /> Settings
                       </button>
                       <button
-                        className="rounded-md px-2 py-1 bg-white text-black"
-                        onClick={startTimer}
+                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10 flex items-center gap-2"
+                        onClick={() => setShowExport(true)}
                       >
-                        Use Queue Now
+                        <FileDown size={16} /> Export
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {focusQueue.length === 0 ? (
-                      <span className="text-zinc-500">
-                        Add tasks via “Focus”
-                      </span>
-                    ) : (
-                      focusQueue.map((id) => {
-                        const tt = tasks.find((x) => x.id === id);
-                        return (
-                          <span
-                            key={id}
-                            className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/10 px-2 py-0.5"
-                          >
-                            {tt?.title ?? id}
-                            <button
-                              className="text-zinc-400 hover:text-white"
-                              onClick={() => toggleFocusForTask(id)}
+
+                  {/* Timer */}
+                  <div className="flex flex-col items-center">
+                    <div className="relative w-fit">
+                      <div
+                        className="absolute -inset-6 rounded-full blur-2xl opacity-40"
+                        style={{
+                          background:
+                            mode === "focus"
+                              ? "radial-gradient(60% 60% at 50% 50%, rgba(255,110,110,.25), transparent)"
+                              : "radial-gradient(60% 60% at 50% 50%, rgba(93,211,158,.25), transparent)",
+                        }}
+                      ></div>
+                      <Ring progress={pct} theme={mode} />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className="text-5xl font-semibold tracking-tight">
+                          {pad(Math.floor(secs / 60))}:
+                          {pad(Math.floor(secs) % 60)}
+                        </div>
+                        <div className="mt-2 text-xs uppercase tracking-widest text-zinc-400">
+                          {mode === "focus" ? "FOCUS" : "BREAK"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2">
+                      {!running ? (
+                        <button
+                          className="rounded-xl bg-white text-black px-4 py-2 flex items-center gap-2 shadow"
+                          onClick={startTimer}
+                        >
+                          <Play size={16} /> Start
+                        </button>
+                      ) : (
+                        <button
+                          className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
+                          onClick={() => setRunning(false)}
+                        >
+                          <Pause size={16} /> Pause
+                        </button>
+                      )}
+                      <button
+                        className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
+                        onClick={stopAndReset}
+                      >
+                        <StopCircle size={16} /> Reset
+                      </button>
+                    </div>
+                    <div className="mt-3 text-xs text-zinc-400">
+                      Long break every 4 sessions
+                    </div>
+                    {running && activeFocus.length > 0 && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 justify-center max-w-sm">
+                        {activeFocus.map((id) => {
+                          const tt = tasks.find((x) => x.id === id);
+                          return (
+                            <span
+                              key={id}
+                              className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/10 px-2 py-0.5 text-[11px]"
                             >
-                              ×
+                              {tt?.title ?? id}
+                              <button
+                                className="text-zinc-400 hover:text-white"
+                                onClick={() => toggleFocusForTask(id)}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {!running && (
+                      <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3 text-xs w-full max-w-sm">
+                        <div className="flex items-center justify-between text-zinc-300">
+                          <span>Focus Queue</span>
+                          <div className="flex gap-2">
+                            <button
+                              className="rounded-md px-2 py-1 bg-white/5 border border-white/10"
+                              onClick={clearQueue}
+                            >
+                              Clear
                             </button>
-                          </span>
-                        );
-                      })
+                            <button
+                              className="rounded-md px-2 py-1 bg-white text-black"
+                              onClick={startTimer}
+                            >
+                              Use Queue Now
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {focusQueue.length === 0 ? (
+                            <span className="text-zinc-500">
+                              Add tasks via “Focus”
+                            </span>
+                          ) : (
+                            focusQueue.map((id) => {
+                              const tt = tasks.find((x) => x.id === id);
+                              return (
+                                <span
+                                  key={id}
+                                  className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/10 px-2 py-0.5"
+                                >
+                                  {tt?.title ?? id}
+                                  <button
+                                    className="text-zinc-400 hover:text-white"
+                                    onClick={() => toggleFocusForTask(id)}
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
-              )}
-            </div>
 
-            {/* Log */}
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 mt-6">
-              <div className="flex items-center justify-between">
-                <div className="text-zinc-200 font-medium">
-                  Today’s Sessions
-                </div>
-                <div className="text-xs text-zinc-400 flex items-center gap-2">
-                  <Clock size={14} />{" "}
-                  {log.filter((l) => l.kind === "focus").length} focus •{" "}
-                  {log.filter((l) => l.kind === "break").length} breaks
-                </div>
-              </div>
-              {log.length === 0 ? (
-                <div className="text-sm text-zinc-400 mt-3">
-                  No sessions yet. Start your first 25:00.
-                </div>
-              ) : (
-                <div className="mt-3 grid gap-2 max-h-64 overflow-auto pr-1">
-                  {log.map((s, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
-                    >
-                      <span
-                        className={`h-2 w-2 rounded-full ${
-                          s.kind === "focus" ? "bg-red-400" : "bg-emerald-400"
-                        }`}
-                      />
-                      <div className="text-sm text-zinc-200 capitalize">
-                        {s.kind}
+                  {/* Log */}
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 mt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="text-zinc-200 font-medium">
+                        Today’s Sessions
                       </div>
-                      <div className="text-xs text-zinc-400">{s.minutes}m</div>
-                      <div className="ml-auto text-xs text-zinc-400">
-                        {s.at}
+                      <div className="text-xs text-zinc-400 flex items-center gap-2">
+                        <Clock size={14} />{" "}
+                        {log.filter((l) => l.kind === "focus").length} focus •{" "}
+                        {log.filter((l) => l.kind === "break").length} breaks
                       </div>
-                      {s.completed && (
-                        <Check className="text-emerald-400" size={14} />
-                      )}
                     </div>
-                  ))}
-                </div>
+                    {log.length === 0 ? (
+                      <div className="text-sm text-zinc-400 mt-3">
+                        No sessions yet. Start your first 25:00.
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid gap-2 max-h-64 overflow-auto pr-1">
+                        {log.map((s, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                          >
+                            <span
+                              className={`h-2 w-2 rounded-full ${
+                                s.kind === "focus"
+                                  ? "bg-red-400"
+                                  : "bg-emerald-400"
+                              }`}
+                            />
+                            <div className="text-sm text-zinc-200 capitalize">
+                              {s.kind}
+                            </div>
+                            <div className="text-xs text-zinc-400">
+                              {s.minutes}m
+                            </div>
+                            <div className="ml-auto text-xs text-zinc-400">
+                              {s.at}
+                            </div>
+                            {s.completed && (
+                              <Check className="text-emerald-400" size={14} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
           </div>
 
           {/* Right: Todo + LLM assist */}
@@ -543,7 +706,7 @@ export default function Planner() {
               ))}
             </div>
 
-            <div className="grid gap-4">
+            <div className="grid gap-4 min-h-0">
               {rightPane === "todos" && (
                 <TodosView
                   tasks={tasks}
@@ -558,9 +721,12 @@ export default function Planner() {
               )}
               {rightPane === "today" && (
                 <TodayView
+                  ref={gridRef}
                   blocks={blocks}
-                  setBlocks={setBlocks}
                   tasks={tasks}
+                  newBlock={newBlock}
+                  activeBlock={activeBlock}
+                  onDeleteBlock={handleDeleteBlock}
                 />
               )}
               {rightPane === "notes" && (

@@ -1,34 +1,7 @@
-import { useDraggable } from "@dnd-kit/core";
 import { Plus, Wand2 } from "lucide-react";
 import React from "react";
 import { Task } from "../../types";
-import TaskRow from "../TaskRow";
-
-const TaskDraggable = ({
-  t,
-  children,
-}: {
-  t: Task;
-  children: React.ReactNode;
-}) => {
-  const { attributes, listeners, setNodeRef } = useDraggable({
-    id: `task-${t.id}`,
-    data: {
-      type: "TASK",
-      task: t,
-    },
-  });
-
-  const child = React.Children.only(children);
-  if (React.isValidElement(child)) {
-    return React.cloneElement(child as React.ReactElement<any>, {
-      ref: setNodeRef,
-      ...listeners,
-      ...attributes,
-    });
-  }
-  return children;
-};
+import TaskListView from "../TaskListView";
 
 export default function TodosView({
   tasks,
@@ -78,17 +51,13 @@ export default function TodosView({
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 overflow-hidden">
-        <div className="grid gap-2 max-h-[56vh] overflow-auto pr-1">
-          {tasks.map((t) => (
-            <TaskDraggable t={t} key={t.id}>
-              <TaskRow
-                task={t}
-                onToggle={toggleTask}
-                inQueue={inQueue}
-                onToggleFocus={toggleFocusForTask}
-              />
-            </TaskDraggable>
-          ))}
+        <div className="max-h-[56vh] overflow-auto pr-1">
+          <TaskListView
+            tasks={tasks}
+            onToggle={toggleTask}
+            inQueue={inQueue}
+            onToggleFocus={toggleFocusForTask}
+          />
         </div>
       </div>
     </>
