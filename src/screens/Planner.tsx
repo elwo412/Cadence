@@ -32,7 +32,7 @@ import ContextMenu, { ContextMenuItem } from "../components/ContextMenu";
 import UnscheduledTasks from "../components/UnscheduledTasks";
 import { useCalendarDnD } from "../hooks/useCalendarDnD";
 import { useTasks } from "../hooks/useTasks";
-import { TimerMode, useTimer } from "../hooks/useTimer";
+import { useTimer } from "../hooks/useTimer";
 import SettingsModal from "../components/SettingsModal";
 import TaskComposer from "../components/TaskComposer";
 import { invoke } from "@tauri-apps/api/core";
