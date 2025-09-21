@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Play,
   Pause,
@@ -27,28 +27,15 @@ import LabelInput from "../components/LabelInput";
 import TodosView from "../components/tabs/TodosView";
 import TodayView from "../components/tabs/TodayView";
 import NotesView from "../components/tabs/NotesView";
-import {
-  minsToHHMM,
-  parseHHMM,
-  roundToSlot,
-  SLOT_MIN,
-  DAY_START,
-  DAY_END,
-  NUDGE_MIN,
-} from "../lib/time";
-import {
-  clampStart,
-  GridMetrics,
-  roundTo,
-  slotHeightPx,
-  yToMinutes,
-} from "../lib/timeGrid";
+import { minsToHHMM, NUDGE_MIN, SLOT_MIN } from "../lib/time";
 import TaskRow from "../components/TaskRow";
 import { AnimatePresence, motion } from "framer-motion";
-import TaskListView from "../components/TaskListView";
 import { CustomPointerSensor } from "../lib/sensors";
 import ContextMenu, { ContextMenuItem } from "../components/ContextMenu";
 import UnscheduledTasks from "../components/UnscheduledTasks";
+import { useCalendarDnD } from "../hooks/useCalendarDnD";
+import { useTasks } from "../hooks/useTasks";
+import { useTimer } from "../hooks/useTimer";
 
 export type RightPane = "todos" | "today" | "notes";
 
@@ -65,25 +52,40 @@ function saveBlocksFor(date: string, b: DayBlock[]) {
 
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: uuid(),
-      title: "Write daily plan",
-      est: 10,
-      tags: ["ritual"],
-      done: false,
-    },
-    {
-      id: uuid(),
-      title: "Deep work block",
-      est: 50,
-      tags: ["focus", "pomodoro"],
-      done: false,
-    },
-  ]);
+  const { tasks, newTask, setNewTask, addTask, toggleTask, applyLLM } =
+    useTasks();
   const [blocks, setBlocks] = useState<DayBlock[]>(
     () => loadBlocksFor(todayISO()) || []
   );
+  const [activeFocus, setActiveFocus] = useState<string[]>([]);
+  const [log, setLog] = useState<Session[]>([]);
+
+  const onSessionComplete = (session: Session) => {
+    const sessionWithTasks = {
+      ...session,
+      taskIds: activeFocus.length > 0 ? [...activeFocus] : undefined,
+    };
+    setLog((l) => [sessionWithTasks, ...l]);
+    if (session.kind === "focus") {
+      setActiveFocus([]);
+    }
+  };
+
+  const {
+    mode,
+    setMode,
+    running,
+    workMin,
+    setWorkMin,
+    breakMin,
+    setBreakMin,
+    secs,
+    setSecs,
+    startTimer,
+    pauseTimer,
+    stopAndReset,
+    pct,
+  } = useTimer(25, 5, onSessionComplete);
 
   const sensors = useSensors(
     useSensor(CustomPointerSensor, {
@@ -93,172 +95,29 @@ export default function Planner() {
     })
   );
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const {
+    newBlock,
+    previewBlock,
+    activeBlock,
+    handleDragStart,
+    handleDragMove,
+    handleDragEnd,
+    handleDragOver,
+  } = useCalendarDnD(gridRef, tasks, blocks, setBlocks);
 
-  // State for calendar DnD
-  const [newBlock, setNewBlock] = useState<DayBlock | null>(null);
-  const [previewBlock, setPreviewBlock] = useState<DayBlock | null>(null);
-  const [activeBlock, setActiveBlock] = useState<DayBlock | null>(null);
-  const [resizeMode, setResizeMode] = useState<"top" | "bottom" | null>(null);
-  const dragInfo = useRef<{
-    startMin: number;
-    lengthMin: number;
-    grabOffsetMin: number;
-    metrics: GridMetrics;
-  } | null>(null);
-
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDndDragStart = (event: DragStartEvent) => {
+    handleDragStart(event);
     const { active } = event;
     const { current } = active.data;
     const type = current?.type;
-
-    if (!gridRef.current) return;
-
-    const metrics: GridMetrics = {
-      el: gridRef.current,
-      dayStartMin: parseHHMM(DAY_START),
-      dayEndMin: parseHHMM(DAY_END),
-      totalSlots:
-        (parseHHMM(DAY_END) - parseHHMM(DAY_START)) / SLOT_MIN,
-    };
-
-    const startY = (event.activatorEvent as PointerEvent).clientY;
-    const startMin = yToMinutes(startY, metrics);
-
-    if (type === "BLOCK_MOVE" || type?.startsWith("BLOCK_RESIZE")) {
-      const block = current.block as DayBlock;
-      setActiveBlock(block);
-      dragInfo.current = {
-        startMin: block.startMin,
-        lengthMin: block.lengthMin,
-        grabOffsetMin: startMin - block.startMin,
-        metrics,
-      };
-
-      if (type === "BLOCK_RESIZE_TOP") setResizeMode("top");
-      if (type === "BLOCK_RESIZE_BOTTOM") setResizeMode("bottom");
-    } else if (type === "TASK") {
-      setActiveTask(current.task);
-    } else if (active.id === "grid-creator") {
-      const snappedStart = roundTo(startMin, SLOT_MIN);
-      const newB: DayBlock = {
-        id: "NEW_BLOCK",
-        taskId: tasks[0]?.id || "temp",
-        startMin: snappedStart,
-        lengthMin: SLOT_MIN,
-      };
-      setNewBlock(newB);
-      dragInfo.current = {
-        startMin: newB.startMin,
-        lengthMin: newB.lengthMin,
-        grabOffsetMin: 0,
-        metrics,
-      };
+    if (type === "TASK") {
+      setActiveTask(current?.task);
     }
   };
 
-  const handleDragMove = (event: DragMoveEvent) => {
-    const { delta, activatorEvent } = event;
-    if (!dragInfo.current) return;
-
-    const { metrics, startMin, lengthMin, grabOffsetMin } = dragInfo.current;
-    const step = (activatorEvent as PointerEvent).altKey ? 5 : SLOT_MIN;
-
-    const initialY = (activatorEvent as PointerEvent).clientY;
-    const currentY = initialY + delta.y;
-    const currentMin = yToMinutes(currentY, metrics);
-
-    if (newBlock) {
-      const newLength = roundTo(currentMin - newBlock.startMin, step);
-      if (newLength >= SLOT_MIN) {
-        setNewBlock({ ...newBlock, lengthMin: newLength });
-      }
-    } else if (activeBlock) {
-      if (resizeMode === "top") {
-        const snappedMin = roundTo(currentMin, step);
-        const endMin = startMin + lengthMin;
-        const newStart = clampStart(snappedMin, SLOT_MIN, metrics);
-        const newLength = endMin - newStart;
-        if (newLength >= SLOT_MIN) {
-          setActiveBlock({
-            ...activeBlock,
-            startMin: newStart,
-            lengthMin: newLength,
-          });
-        }
-      } else if (resizeMode === "bottom") {
-        const newLength = roundTo(currentMin - activeBlock.startMin, step);
-        if (newLength >= SLOT_MIN) {
-          setActiveBlock({ ...activeBlock, lengthMin: newLength });
-        }
-      } else {
-        const snappedMin = roundTo(currentMin - grabOffsetMin, step);
-        const newStart = clampStart(snappedMin, lengthMin, metrics);
-        setActiveBlock({ ...activeBlock, startMin: newStart });
-      }
-    }
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (newBlock) {
-      const finalBlock = { ...newBlock, id: uuid() };
-      setBlocks((bs) => [...bs, finalBlock]);
-    } else if (activeBlock) {
-      setBlocks((bs) =>
-        bs.map((b) => (b.id === activeBlock.id ? activeBlock : b))
-      );
-    } else if (
-      over &&
-      active.data.current?.type === "TASK" &&
-      String(over.id).startsWith("slot-")
-    ) {
-      const task = active.data.current.task;
-      const startMin = Number(String(over.id).replace("slot-", ""));
-      const lengthMin = roundToSlot(Math.max(30, task.est ?? 30));
-      const newB: DayBlock = {
-        id: uuid(),
-        taskId: task.id,
-        startMin: startMin,
-        lengthMin: lengthMin,
-      };
-      setBlocks((b) => [...b, newB]);
-    }
-
-    if (activeBlock && over?.id === "unscheduled-tray") {
-      handleDeleteBlock(activeBlock.id);
-    }
-
+  const handleDndDragEnd = (event: DragEndEvent) => {
+    handleDragEnd(event);
     setActiveTask(null);
-    setActiveBlock(null);
-    setNewBlock(null);
-    setPreviewBlock(null);
-    setResizeMode(null);
-    dragInfo.current = null;
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-
-    if (
-      !over ||
-      active.data.current?.type !== "TASK" ||
-      !String(over.id).startsWith("slot-")
-    ) {
-      if (previewBlock) setPreviewBlock(null);
-      return;
-    }
-
-    const task = active.data.current.task;
-    const startMin = Number(String(over.id).replace("slot-", ""));
-    const lengthMin = roundToSlot(Math.max(30, task.est ?? 30));
-    const newB: DayBlock = {
-      id: "PREVIEW",
-      taskId: task.id,
-      startMin: startMin,
-      lengthMin: lengthMin,
-    };
-    setPreviewBlock(newB);
   };
 
   const handleDeleteBlock = (id: string) => {
@@ -306,7 +165,9 @@ export default function Planner() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Backspace" || e.key === "Delete") {
         if (selectedBlockIds.length > 0) {
-          setBlocks((bs) => bs.filter((b) => !selectedBlockIds.includes(b.id)));
+          setBlocks((bs) =>
+            bs.filter((b) => !selectedBlockIds.includes(b.id))
+          );
           setSelectedBlockIds([]);
         }
       }
@@ -349,23 +210,8 @@ export default function Planner() {
     blockId: string;
   } | null>(null);
 
-  // Theme → dark glass + subtle red/green glows
-  // Timer state
-  const [mode, setMode] = useState<"focus" | "break">("focus");
-  const [running, setRunning] = useState(false);
-  const [workMin, setWorkMin] = useState(25);
-  const [breakMin, setBreakMin] = useState(5);
-  const [secs, setSecs] = useState(workMin * 60);
-
   // Focus / Queue
   const [focusQueue, setFocusQueue] = useState<string[]>([]);
-  const [activeFocus, setActiveFocus] = useState<string[]>([]);
-
-  // Todos
-  const [newTask, setNewTask] = useState("");
-
-  // Sessions
-  const [log, setLog] = useState<Session[]>([]);
 
   // Modals
   const [showExport, setShowExport] = useState(false);
@@ -414,51 +260,17 @@ export default function Planner() {
 
   const clearQueue = () => setFocusQueue([]);
 
-  const startTimer = () => {
-    // When starting, bind the queue (if any) to active session.
+  const handleStartTimer = () => {
     if (!running) {
       setActiveFocus(focusQueue);
-      setRunning(true);
+      startTimer();
     }
   };
 
-  const stopAndReset = () => {
-    setRunning(false);
-    setSecs((mode === "focus" ? workMin : breakMin) * 60);
-    // Keep the queue; clear active focus to avoid leaking into next session
+  const handleStopAndReset = () => {
+    stopAndReset();
     setActiveFocus([]);
   };
-
-  // Timer engine
-  useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setSecs((s) => (s > 0.1 ? s - 0.1 : 0)), 100);
-    return () => clearInterval(id);
-  }, [running]);
-  useEffect(() => {
-    if (secs === 0 && running) {
-      setRunning(false);
-      const minutes = mode === "focus" ? workMin : breakMin;
-      setLog((l) => [
-        {
-          at: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          kind: mode,
-          minutes,
-          completed: true,
-          taskIds: activeFocus.length ? [...activeFocus] : undefined,
-        },
-        ...l,
-      ]);
-      // Auto-switch
-      const next = mode === "focus" ? "break" : "focus";
-      setMode(next);
-      setSecs((next === "focus" ? workMin : breakMin) * 60);
-      if (mode === "focus") setActiveFocus([]);
-    }
-  }, [secs, running, mode, workMin, breakMin, activeFocus]);
 
   // Hotkeys for tab switching
   useEffect(() => {
@@ -470,51 +282,6 @@ export default function Planner() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  // Reset on duration change
-  useEffect(() => {
-    if (!running) setSecs((mode === "focus" ? workMin : breakMin) * 60);
-  }, [workMin, breakMin, mode]);
-
-  const pct = 1 - secs / ((mode === "focus" ? workMin : breakMin) * 60);
-
-  // Task ops
-  const addTask = () => {
-    if (!newTask.trim()) return;
-    setTasks((t) => [
-      { id: uuid(), title: newTask.trim(), tags: [], done: false },
-      ...t,
-    ]);
-    setNewTask("");
-  };
-  const toggleTask = (id: string) =>
-    setTasks((ts) =>
-      ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-    );
-
-  const applyLLM = async () => {
-    // Simulate an LLM assist that adds durations & tags, and rephrases titles slightly
-    setSuggestion("…thinking");
-    await new Promise((r) => setTimeout(r, 750));
-    setTasks((ts) =>
-      ts.map((t) => ({
-        ...t,
-        title: t.title.replace(/\b(Write|Do|Work on)\b/i, "Plan"),
-        est: t.est ?? (t.title.toLowerCase().includes("deep") ? 50 : 25),
-        tags: Array.from(
-          new Set([
-            ...(t.tags || []),
-            ...(t.title.toLowerCase().includes("deep")
-              ? ["deepwork"]
-              : ["ritual"]),
-          ])
-        ),
-      }))
-    );
-    setSuggestion(
-      "Tidied task titles, added estimates and tags (deepwork/ritual)."
-    );
-  };
 
   const markdown = useMemo(() => {
     const lines: string[] = [];
@@ -574,10 +341,10 @@ export default function Planner() {
   return (
     <DndContext
       sensors={sensors}
-      onDragStart={handleDragStart}
+      onDragStart={handleDndDragStart}
       onDragMove={handleDragMove}
       onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
+      onDragEnd={handleDndDragEnd}
       collisionDetection={closestCenter}
     >
       <div
@@ -663,21 +430,21 @@ export default function Planner() {
                       {!running ? (
                         <button
                           className="rounded-xl bg-white text-black px-4 py-2 flex items-center gap-2 shadow"
-                          onClick={startTimer}
+                          onClick={handleStartTimer}
                         >
                           <Play size={16} /> Start
                         </button>
                       ) : (
                         <button
                           className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
-                          onClick={() => setRunning(false)}
+                          onClick={pauseTimer}
                         >
                           <Pause size={16} /> Pause
                         </button>
                       )}
                       <button
                         className="rounded-xl bg-white/10 border border-white/10 px-4 py-2 flex items-center gap-2"
-                        onClick={stopAndReset}
+                        onClick={handleStopAndReset}
                       >
                         <StopCircle size={16} /> Reset
                       </button>
@@ -719,7 +486,7 @@ export default function Planner() {
                             </button>
                             <button
                               className="rounded-md px-2 py-1 bg-white text-black"
-                              onClick={startTimer}
+                              onClick={handleStartTimer}
                             >
                               Use Queue Now
                             </button>
@@ -832,7 +599,12 @@ export default function Planner() {
                   setNewTask={setNewTask}
                   addTask={addTask}
                   toggleTask={toggleTask}
-                  applyLLM={applyLLM}
+                  applyLLM={() => {
+                    applyLLM();
+                    setSuggestion(
+                      "Tidied task titles, added estimates and tags (deepwork/ritual)."
+                    );
+                  }}
                   inQueue={inQueue}
                   toggleFocusForTask={toggleFocusForTask}
                 />

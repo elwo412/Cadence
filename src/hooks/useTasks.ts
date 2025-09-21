@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Task } from "../types";
 import { uuid } from "../lib/utils";
 
-export function useTasks() {
+export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([
     {
       id: uuid(),
@@ -57,11 +57,10 @@ export function useTasks() {
 
   return {
     tasks,
-    setTasks,
     newTask,
     setNewTask,
     addTask,
     toggleTask,
     applyLLM,
   };
-}
+};
