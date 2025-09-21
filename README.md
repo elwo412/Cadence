@@ -1,5 +1,10 @@
 # Cadence
 
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Built with Tauri](https://img.shields.io/badge/Built%20with-Tauri-24C8E2?logo=tauri)](https://tauri.app/)
+[![React + Vite](https://img.shields.io/badge/Frontend-React%20+%20Vite-blue?logo=react)](https://vitejs.dev/)
+[![Rust Backend](https://img.shields.io/badge/Backend-Rust-orange?logo=rust)](https://www.rust-lang.org/)
+
 Cadence is a modern daily planner and focus timer application built for the desktop. It helps you organize your tasks, schedule your day, and stay focused using a Pomodoro-style timer.
 
 <img width="1915" height="1131" alt="image" src="https://github.com/user-attachments/assets/712699c1-e2a4-46db-b29d-6db260e8ca6e" />
