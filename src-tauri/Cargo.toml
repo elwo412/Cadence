@@ -20,9 +20,17 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 thiserror = "1.0.61"
+
+# The following patch is added to force an update to resolve a security vulnerability in glib.
+# See: https://github.com/advisories/GHSA-23x9-35p2-x6r8
+[patch.crates-io]
+glib = { git = "https://github.com/gtk-rs/gtk-rs-core", tag = "0.20.0" }
+gio = { git = "https://github.com/gtk-rs/gtk-rs-core", tag = "0.20.0" }
+cairo-rs = { git = "https://github.com/gtk-rs/gtk-rs-core", tag = "0.20.0" }
 
