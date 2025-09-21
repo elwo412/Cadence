@@ -12,6 +12,7 @@ import {
   DndContext,
   DragEndEvent,
   DragMoveEvent,
+  DragOverEvent,
   DragOverlay,
   DragStartEvent,
   useSensor,
@@ -95,6 +96,7 @@ export default function Planner() {
 
   // State for calendar DnD
   const [newBlock, setNewBlock] = useState<DayBlock | null>(null);
+  const [previewBlock, setPreviewBlock] = useState<DayBlock | null>(null);
   const [activeBlock, setActiveBlock] = useState<DayBlock | null>(null);
   const [resizeMode, setResizeMode] = useState<"top" | "bottom" | null>(null);
   const dragInfo = useRef<{
@@ -230,8 +232,33 @@ export default function Planner() {
     setActiveTask(null);
     setActiveBlock(null);
     setNewBlock(null);
+    setPreviewBlock(null);
     setResizeMode(null);
     dragInfo.current = null;
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+
+    if (
+      !over ||
+      active.data.current?.type !== "TASK" ||
+      !String(over.id).startsWith("slot-")
+    ) {
+      if (previewBlock) setPreviewBlock(null);
+      return;
+    }
+
+    const task = active.data.current.task;
+    const startMin = Number(String(over.id).replace("slot-", ""));
+    const lengthMin = roundToSlot(Math.max(30, task.est ?? 30));
+    const newB: DayBlock = {
+      id: "PREVIEW",
+      taskId: task.id,
+      startMin: startMin,
+      lengthMin: lengthMin,
+    };
+    setPreviewBlock(newB);
   };
 
   const handleDeleteBlock = (id: string) => {
@@ -549,6 +576,7 @@ export default function Planner() {
       sensors={sensors}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       collisionDetection={closestCenter}
     >
@@ -816,6 +844,7 @@ export default function Planner() {
                   tasks={tasks}
                   newBlock={newBlock}
                   activeBlock={activeBlock}
+                  previewBlock={previewBlock}
                   onDeleteBlock={handleDeleteBlock}
                   selectedBlockIds={selectedBlockIds}
                   setSelectedBlockIds={setSelectedBlockIds}

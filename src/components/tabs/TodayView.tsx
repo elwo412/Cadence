@@ -174,209 +174,225 @@ const NowLine = () => {
   );
 };
 
-const TodayView = React.forwardRef<
-  HTMLDivElement,
-  {
-    blocks: DayBlock[];
-    tasks: Task[];
-    newBlock: DayBlock | null;
-    activeBlock: DayBlock | null;
-    onDeleteBlock: (id: string) => void;
-    selectedBlockIds: string[];
-    setSelectedBlockIds: (ids: string[]) => void;
-    scheduledTaskIds: Set<string>;
-    onContextMenu: (payload: { x: number; y: number; blockId: string }) => void;
-  }
->(({ blocks, tasks, newBlock, activeBlock, onDeleteBlock, selectedBlockIds, setSelectedBlockIds, scheduledTaskIds, onContextMenu }, ref) => {
-  const dayStartMin = useMemo(() => parseHHMM(DAY_START), []);
-  const dayEndMin = useMemo(() => parseHHMM(DAY_END), []);
-  const totalSlots = useMemo(
-    () => (dayEndMin - dayStartMin) / SLOT_MIN,
-    [dayStartMin, dayEndMin]
-  );
-  const gridRef = useRef<HTMLDivElement | null>(null);
+type TodayViewProps = {
+  blocks: DayBlock[];
+  tasks: Task[];
+  newBlock: DayBlock | null;
+  activeBlock: DayBlock | null;
+  previewBlock: DayBlock | null;
+  onDeleteBlock: (id: string) => void;
+  selectedBlockIds: string[];
+  setSelectedBlockIds: (ids: string[]) => void;
+  scheduledTaskIds: Set<string>;
+  onContextMenu: (payload: { x: number; y: number; blockId: string }) => void;
+};
 
-  const minutesToY = useCallback(
-    (min: number) => ((min - dayStartMin) / SLOT_MIN) * SLOT_HEIGHT,
-    [dayStartMin]
-  );
-
-  useEffect(() => {
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    if (gridRef.current) {
-      const y = ((nowMin - dayStartMin) / SLOT_MIN) * SLOT_HEIGHT;
-      gridRef.current.scrollTop = Math.max(
-        0,
-        y - gridRef.current.clientHeight * 0.25
-      );
-    }
-  }, [dayStartMin]);
-
-  const { setNodeRef: gridDroppableRef } = useDroppable({ id: "today-grid" });
-  const {
-    attributes: gridDraggableAttr,
-    listeners: gridDraggableListeners,
-    setNodeRef: gridDraggableRef,
-  } = useDraggable({ id: "grid-creator" });
-
-  const setGridRefs = useCallback(
-    (node: HTMLDivElement | null) => {
-      gridRef.current = node;
-      gridDroppableRef(node);
-      gridDraggableRef(node);
-      if (typeof ref === "function") {
-        ref(node);
-      } else if (ref) {
-        ref.current = node;
-      }
+const TodayView = React.forwardRef<HTMLDivElement, TodayViewProps>(
+  (
+    {
+      blocks,
+      tasks,
+      newBlock,
+      activeBlock,
+      previewBlock,
+      onDeleteBlock,
+      selectedBlockIds,
+      setSelectedBlockIds,
+      scheduledTaskIds,
+      onContextMenu,
     },
-    [gridDroppableRef, gridDraggableRef, ref]
-  );
+    ref
+  ) => {
+    const dayStartMin = useMemo(() => parseHHMM(DAY_START), []);
+    const dayEndMin = useMemo(() => parseHHMM(DAY_END), []);
+    const totalSlots = useMemo(
+      () => (dayEndMin - dayStartMin) / SLOT_MIN,
+      [dayStartMin, dayEndMin]
+    );
+    const gridRef = useRef<HTMLDivElement | null>(null);
 
-  const handleBlockClick = (e: React.MouseEvent, blockId: string) => {
-    if (e.metaKey || e.ctrlKey) {
-      setSelectedBlockIds(
-        selectedBlockIds.includes(blockId)
-          ? selectedBlockIds.filter((id) => id !== blockId)
-          : [...selectedBlockIds, blockId]
+    const minutesToY = useCallback(
+      (min: number) => ((min - dayStartMin) / SLOT_MIN) * SLOT_HEIGHT,
+      [dayStartMin]
+    );
+
+    useEffect(() => {
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      if (gridRef.current) {
+        const y = ((nowMin - dayStartMin) / SLOT_MIN) * SLOT_HEIGHT;
+        gridRef.current.scrollTop = Math.max(
+          0,
+          y - gridRef.current.clientHeight * 0.25
+        );
+      }
+    }, [dayStartMin]);
+
+    const { setNodeRef: gridDroppableRef } = useDroppable({ id: "today-grid" });
+    const {
+      attributes: gridDraggableAttr,
+      listeners: gridDraggableListeners,
+      setNodeRef: gridDraggableRef,
+    } = useDraggable({ id: "grid-creator" });
+
+    const setGridRefs = useCallback(
+      (node: HTMLDivElement | null) => {
+        gridRef.current = node;
+        gridDroppableRef(node);
+        gridDraggableRef(node);
+        if (typeof ref === "function") {
+          ref(node);
+        } else if (ref) {
+          ref.current = node;
+        }
+      },
+      [gridDroppableRef, gridDraggableRef, ref]
+    );
+
+    const handleBlockClick = (e: React.MouseEvent, blockId: string) => {
+      if (e.metaKey || e.ctrlKey) {
+        setSelectedBlockIds(
+          selectedBlockIds.includes(blockId)
+            ? selectedBlockIds.filter((id) => id !== blockId)
+            : [...selectedBlockIds, blockId]
+        );
+      } else {
+        setSelectedBlockIds([blockId]);
+      }
+    };
+
+    const GhostBlock = () => {
+      const blockToRender = newBlock || activeBlock || previewBlock;
+      if (!blockToRender) return null;
+
+      const isOverlapping = blocks
+        .filter((b) => b.id !== blockToRender.id)
+        .some((other) => overlaps(blockToRender, other));
+
+      return (
+        <div
+          className="absolute left-0 right-0 z-20"
+          style={{
+            top: minutesToY(blockToRender.startMin),
+            height: (blockToRender.lengthMin / SLOT_MIN) * SLOT_HEIGHT,
+          }}
+        >
+          <div
+            className={`flex items-center gap-2 rounded-xl border p-2 h-full text-xs opacity-80 bg-white/10 ${
+              isOverlapping
+                ? "border-red-500/50"
+                : "border-dashed border-white/40"
+            }`}
+          >
+            {minsToHHMM(blockToRender.startMin)} -{" "}
+            {minsToHHMM(blockToRender.startMin + blockToRender.lengthMin)} (
+            {blockToRender.lengthMin}m)
+          </div>
+        </div>
       );
-    } else {
-      setSelectedBlockIds([blockId]);
-    }
-  };
-
-  const GhostBlock = () => {
-    const blockToRender = newBlock || activeBlock;
-    if (!blockToRender) return null;
-
-    const isOverlapping = blocks
-      .filter((b) => b.id !== blockToRender.id)
-      .some((other) => overlaps(blockToRender, other));
+    };
 
     return (
       <div
-        className="absolute left-0 right-0 z-20"
-        style={{
-          top: minutesToY(blockToRender.startMin),
-          height: (blockToRender.lengthMin / SLOT_MIN) * SLOT_HEIGHT,
-        }}
+        ref={gridRef}
+        className="relative rounded-3xl border border-white/10 bg-transparent shadow-[0_0_110px_rgba(110,168,255,0.08)] h-full overflow-auto"
+        style={{ touchAction: "none", userSelect: "none" }}
       >
         <div
-          className={`flex items-center gap-2 rounded-xl border p-2 h-full text-xs opacity-80 bg-white/10 ${
-            isOverlapping
-              ? "border-red-500/50"
-              : "border-dashed border-white/40"
-          }`}
-        >
-          {minsToHHMM(blockToRender.startMin)} -{" "}
-          {minsToHHMM(blockToRender.startMin + blockToRender.lengthMin)} (
-          {blockToRender.lengthMin}m)
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div
-      ref={gridRef}
-      className="relative rounded-3xl border border-white/10 bg-transparent shadow-[0_0_110px_rgba(110,168,255,0.08)] h-full overflow-auto"
-      style={{ touchAction: "none", userSelect: "none" }}
-    >
-      <div
-        className="absolute inset-0 rounded-3xl bg-white/5 backdrop-blur-xl pointer-events-none"
-        aria-hidden="true"
-      />
-      <div className="relative h-full flex flex-col gap-4">
-        <div className="grid grid-cols-[64px_1fr] flex-1">
-          {/* time rail */}
-          <div className="relative">
-            {[...Array(totalSlots + 1)].map((_, i) => {
-              const absMin = dayStartMin + i * SLOT_MIN;
-              const isHour = absMin % 60 === 0;
-              return (
-                <div
-                  key={i}
-                  style={{ height: SLOT_HEIGHT }}
-                  className={`text-[10px] text-zinc-500 px-2 text-right relative ${
-                    isHour ? "" : ""
-                  }`}
-                >
-                  {isHour ? (
-                    <>
-                      <span className="absolute -top-[7px] right-2">
-                        {minsToHHMM(absMin)}
-                      </span>
-                    </>
-                  ) : (
-                    ""
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* grid body */}
-          <div
-            ref={setGridRefs}
-            {...gridDraggableAttr}
-            {...gridDraggableListeners}
-            className="relative"
-            style={{ height: totalSlots * SLOT_HEIGHT }}
-          >
-            {/* slot lines */}
-            {[...Array(totalSlots)].map((_, i) => {
-              const absMin = dayStartMin + i * SLOT_MIN;
-              const isHour = absMin % 60 === 0;
-              return (
-                <div
-                  key={i}
-                  style={{ top: i * SLOT_HEIGHT, height: SLOT_HEIGHT }}
-                  className={`absolute left-0 right-0 border-t ${
-                    isHour ? "border-white/10" : "border-white/5"
-                  } pointer-events-none ${i % 2 === 0 ? "bg-white/5" : ""}`}
-                />
-              );
-            })}
-
-            {/* Ghost block for creation/movement */}
-            <GhostBlock />
-
-            {/* droppable slots */}
-            {[...Array(totalSlots)].map((_, i) => {
-              const time = dayStartMin + i * SLOT_MIN;
-              return <DroppableSlot key={time} time={time} />;
-            })}
-
-            {/* now line */}
-            <NowLine />
-
-            {/* blocks overlay */}
-            {blocks
-              .filter((b) => b.id !== activeBlock?.id)
-              .map((b) => {
-                const isOverlapping = blocks.some((other) => overlaps(b, other));
+          className="absolute inset-0 rounded-3xl bg-white/5 backdrop-blur-xl pointer-events-none"
+          aria-hidden="true"
+        />
+        <div className="relative h-full flex flex-col gap-4">
+          <div className="grid grid-cols-[64px_1fr] flex-1">
+            {/* time rail */}
+            <div className="relative">
+              {[...Array(totalSlots + 1)].map((_, i) => {
+                const absMin = dayStartMin + i * SLOT_MIN;
+                const isHour = absMin % 60 === 0;
                 return (
-                  <BlockCard
-                    key={b.id}
-                    block={b}
-                    task={tasks.find((t) => t.id === b.taskId)}
-                    onDelete={onDeleteBlock}
-                    isOverlapping={isOverlapping}
-                    isSelected={selectedBlockIds.includes(b.id)}
-                    onClick={(e) => handleBlockClick(e, b.id)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      onContextMenu({ x: e.clientX, y: e.clientY, blockId: b.id });
-                    }}
+                  <div
+                    key={i}
+                    style={{ height: SLOT_HEIGHT }}
+                    className={`text-[10px] text-zinc-500 px-2 text-right relative ${
+                      isHour ? "" : ""
+                    }`}
+                  >
+                    {isHour ? (
+                      <>
+                        <span className="absolute -top-[7px] right-2">
+                          {minsToHHMM(absMin)}
+                        </span>
+                      </>
+                    ) : (
+                      ""
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* grid body */}
+            <div
+              ref={setGridRefs}
+              {...gridDraggableAttr}
+              {...gridDraggableListeners}
+              className="relative"
+              style={{ height: totalSlots * SLOT_HEIGHT }}
+            >
+              {/* slot lines */}
+              {[...Array(totalSlots)].map((_, i) => {
+                const absMin = dayStartMin + i * SLOT_MIN;
+                const isHour = absMin % 60 === 0;
+                return (
+                  <div
+                    key={i}
+                    style={{ top: i * SLOT_HEIGHT, height: SLOT_HEIGHT }}
+                    className={`absolute left-0 right-0 border-t ${
+                      isHour ? "border-white/10" : "border-white/5"
+                    } pointer-events-none ${i % 2 === 0 ? "bg-white/5" : ""}`}
                   />
                 );
               })}
+
+              {/* Ghost block for creation/movement */}
+              <GhostBlock />
+
+              {/* droppable slots */}
+              {[...Array(totalSlots)].map((_, i) => {
+                const time = dayStartMin + i * SLOT_MIN;
+                return <DroppableSlot key={time} time={time} />;
+              })}
+
+              {/* now line */}
+              <NowLine />
+
+              {/* blocks overlay */}
+              {blocks
+                .filter((b) => b.id !== activeBlock?.id)
+                .map((b) => {
+                  const isOverlapping = blocks.some((other) => overlaps(b, other));
+                  return (
+                    <BlockCard
+                      key={b.id}
+                      block={b}
+                      task={tasks.find((t) => t.id === b.taskId)}
+                      onDelete={onDeleteBlock}
+                      isOverlapping={isOverlapping}
+                      isSelected={selectedBlockIds.includes(b.id)}
+                      onClick={(e) => handleBlockClick(e, b.id)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        onContextMenu({ x: e.clientX, y: e.clientY, blockId: b.id });
+                      }}
+                    />
+                  );
+                })}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
 export default TodayView;
