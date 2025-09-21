@@ -29,7 +29,7 @@ const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
           {task.done && <CheckSquare2 size={14} className="text-black" />}
         </button>
         <div
-          className={`flex-1 text-sm whitespace-nowrap min-w-0 ${
+          className={`flex-1 text-sm whitespace-nowrap ${
             task.done ? "line-through text-zinc-500" : "text-zinc-100"
           }`}
         >
@@ -49,7 +49,7 @@ const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
           className={`ml-auto text-[11px] rounded-md px-2 py-1 border ${
             inQueue(task.id)
               ? "bg-emerald-400 text-black border-emerald-300"
-              : "bg-white/5 text-zinc-200 border-white/10 hover:bg-white/10"
+              : "bg-white/5 text-zinc-200 border-white/10"
           } flex items-center gap-1`}
           onClick={() => onToggleFocus(task.id)}
           title={inQueue(task.id) ? "Remove from Focus" : "Add to Focus"}
