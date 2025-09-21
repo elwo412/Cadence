@@ -229,7 +229,7 @@ const TodayView = React.forwardRef<HTMLDivElement, TodayViewProps>(
     },
     ref
   ) => {
-    const [zoom, setZoom] = useState(1);
+    const [zoom, setZoom] = useState(1.6);
     const slotHeight = BASE_SLOT_HEIGHT * zoom;
 
     const dayStartMin = useMemo(() => parseHHMM(DAY_START), []);
@@ -247,7 +247,7 @@ const TodayView = React.forwardRef<HTMLDivElement, TodayViewProps>(
 
     useEffect(() => {
       const now = new Date();
-      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const nowMin = 8 * 60;
       if (gridRef.current) {
         const y = ((nowMin - dayStartMin) / SLOT_MIN) * slotHeight;
         gridRef.current.scrollTop = Math.max(
@@ -330,7 +330,7 @@ const TodayView = React.forwardRef<HTMLDivElement, TodayViewProps>(
           aria-hidden="true"
         />
         <button
-          onClick={() => setZoom(zoom === 1 ? 0.5 : 1)}
+          onClick={() => setZoom(zoom === 1.6 ? 0.7 : 1.6)}
           className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-black/30 flex items-center justify-center text-zinc-400 hover:text-white"
           title="Toggle zoom"
         >
