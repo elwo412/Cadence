@@ -51,9 +51,9 @@ const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
         >
           {task.title}
         </div>
-        {task.est && (
+        {task.est_minutes > 0 && (
           <span className="text-[11px] text-zinc-400 border border-white/10 rounded-md px-1.5 py-0.5">
-            ~{task.est}m
+            ~{task.est_minutes}m
           </span>
         )}
         <div className="hidden md:flex gap-1">

@@ -1,5 +1,5 @@
 import React from "react";
-import { Task } from "../../types";
+import { Task } from "../types";
 import TaskRow from "./TaskRow";
 import { useDraggable } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";

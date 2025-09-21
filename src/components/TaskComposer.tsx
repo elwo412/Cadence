@@ -57,9 +57,9 @@ export default function TaskComposer({
       open={open}
       onClose={onClose}
       title="Task Composer"
-      className="max-w-xl"
+      // className="max-w-xl"
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 max-w-xl mx-auto">
         <div className="flex items-center gap-2 p-1 rounded-lg bg-black/20 border border-white/10">
           <TabButton active={tab === "quick"} onClick={() => setTab("quick")}>
             <div className="flex items-center justify-center gap-2">

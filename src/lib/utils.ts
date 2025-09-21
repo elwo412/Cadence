@@ -14,7 +14,5 @@ export const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export function overlaps(a: DayBlock, b: DayBlock): boolean {
   if (a.id === b.id) return false;
-  return (
-    a.startMin < b.startMin + b.lengthMin && a.startMin + a.lengthMin > b.startMin
-  );
+  return a.start_slot < b.end_slot && a.end_slot > b.start_slot;
 }

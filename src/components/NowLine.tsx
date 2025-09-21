@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { DAY_END, DAY_START, parseHHMM, SLOT_MIN } from "../lib/time";
 
 export const NowLine = ({ slotHeight }: { slotHeight: number }) => {

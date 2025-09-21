@@ -78,6 +78,10 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
       const blockToRender = newBlock || activeBlock || previewBlock;
       if (!blockToRender) return null;
 
+      const startMin = blockToRender.start_slot * SLOT_MIN;
+      const lengthMin =
+        (blockToRender.end_slot - blockToRender.start_slot) * SLOT_MIN;
+
       const isOverlapping = blocks
         .filter((b) => b.id !== blockToRender.id)
         .some((other) => overlaps(blockToRender, other));
@@ -86,8 +90,8 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
         <div
           className="absolute left-0 right-0 z-20"
           style={{
-            top: minutesToY(blockToRender.startMin),
-            height: (blockToRender.lengthMin / SLOT_MIN) * slotHeight,
+            top: minutesToY(startMin),
+            height: (lengthMin / SLOT_MIN) * slotHeight,
           }}
         >
           <div
@@ -97,9 +101,8 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
                 : "border-dashed border-white/40"
             }`}
           >
-            {minsToHHMM(blockToRender.startMin)} -{" "}
-            {minsToHHMM(blockToRender.startMin + blockToRender.lengthMin)} (
-            {blockToRender.lengthMin}m)
+            {minsToHHMM(startMin)} - {minsToHHMM(startMin + lengthMin)} (
+            {lengthMin}m)
           </div>
         </div>
       );
@@ -184,7 +187,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
                     <BlockCard
                       key={b.id}
                       block={b}
-                      task={tasks.find((t) => t.id === b.taskId)}
+                      task={tasks.find((t) => t.id === b.task_id)}
                       onDelete={onDeleteBlock}
                       isOverlapping={isOverlapping}
                       isSelected={selectedBlockIds.includes(b.id)}

@@ -1,14 +1,14 @@
 import { useDroppable } from "@dnd-kit/core";
-import React from "react";
+// import React from "react";
 import { DAY_START, parseHHMM, SLOT_MIN } from "../lib/time";
 
-export const DroppableSlot = ({
+export function DroppableSlot({
   time,
   slotHeight,
 }: {
   time: number;
   slotHeight: number;
-}) => {
+}) {
   const { setNodeRef } = useDroppable({ id: `slot-${time}` });
   const dayStartMin = parseHHMM(DAY_START);
   const i = (time - dayStartMin) / SLOT_MIN;
@@ -24,4 +24,4 @@ export const DroppableSlot = ({
       }}
     />
   );
-};
+}

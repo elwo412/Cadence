@@ -1,5 +1,5 @@
 import { Clipboard, Clock } from "lucide-react";
-import React from "react";
+// import React from "react";
 
 export default function NotesView({
   notes,

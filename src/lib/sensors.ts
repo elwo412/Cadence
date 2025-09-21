@@ -1,37 +1,23 @@
+import { PointerEvent } from "react";
 import { PointerSensor } from "@dnd-kit/core";
 
+// This is a custom sensor that prevents text selection while dragging.
 export class CustomPointerSensor extends PointerSensor {
+  public autoScrollEnabled = false;
+
   static activators = [
     {
       eventName: "onPointerDown" as const,
-      handler: ({ nativeEvent: event }: { nativeEvent: PointerEvent }) => {
+      handler: ({ nativeEvent: event }: PointerEvent<Element>) => {
+        if (
+          event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement ||
+          event.target instanceof HTMLButtonElement
+        ) {
+          return false;
+        }
         return true;
       },
     },
   ];
-
-  constructor(props: any) {
-    super(props);
-  }
-
-  // We need to add the y coordinate to the event data
-  protected getEventActivator(event: any): any {
-    const activator = super.getEventActivator(event);
-    if (activator) {
-      return {
-        ...activator,
-        handler: (e: any, ...args: any) => {
-          const handlerResult = activator.handler(e, ...args);
-          if (handlerResult) {
-            return {
-              ...handlerResult,
-              y: e.clientY,
-            };
-          }
-          return handlerResult;
-        },
-      };
-    }
-    return activator;
-  }
 }

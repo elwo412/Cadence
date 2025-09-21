@@ -1,20 +1,22 @@
 import { useRef, useState } from "react";
 import { DayBlock, Task } from "../types";
-import { GridMetrics, yToMinutes, roundTo, clampStart } from "../lib/timeGrid";
+import { GridMetrics, yToMinutes } from "../lib/timeGrid";
 import {
   DragEndEvent,
   DragMoveEvent,
   DragOverEvent,
   DragStartEvent,
 } from "@dnd-kit/core";
-import { DAY_END, DAY_START, NUDGE_MIN, SLOT_MIN } from "../lib/time";
-import { parseHHMM, roundToSlot } from "../lib/time";
+import { DAY_END, DAY_START, SLOT_MIN } from "../lib/time";
+import { parseHHMM } from "../lib/time";
 import { uuid } from "../lib/utils";
+
+const minsToSlots = (mins: number) => Math.round(mins / SLOT_MIN);
 
 export const useCalendarDnD = (
   gridRef: React.RefObject<HTMLDivElement>,
   tasks: Task[],
-  blocks: DayBlock[],
+  _blocks: DayBlock[],
   setBlocks: React.Dispatch<React.SetStateAction<DayBlock[]>>
 ) => {
   const [newBlock, setNewBlock] = useState<DayBlock | null>(null);
@@ -22,9 +24,9 @@ export const useCalendarDnD = (
   const [activeBlock, setActiveBlock] = useState<DayBlock | null>(null);
   const [resizeMode, setResizeMode] = useState<"top" | "bottom" | null>(null);
   const dragInfo = useRef<{
-    startMin: number;
-    lengthMin: number;
-    grabOffsetMin: number;
+    start_slot: number;
+    end_slot: number;
+    grabOffset_slot: number;
     metrics: GridMetrics;
   } | null>(null);
 
@@ -44,32 +46,33 @@ export const useCalendarDnD = (
 
     const startY = (event.activatorEvent as PointerEvent).clientY;
     const startMin = yToMinutes(startY, metrics);
+    const startSlot = minsToSlots(startMin);
 
     if (type === "BLOCK_MOVE" || type?.startsWith("BLOCK_RESIZE")) {
       const block = current?.block as DayBlock;
       setActiveBlock(block);
       dragInfo.current = {
-        startMin: block.startMin,
-        lengthMin: block.lengthMin,
-        grabOffsetMin: startMin - block.startMin,
+        start_slot: block.start_slot,
+        end_slot: block.end_slot,
+        grabOffset_slot: startSlot - block.start_slot,
         metrics,
       };
 
       if (type === "BLOCK_RESIZE_TOP") setResizeMode("top");
       if (type === "BLOCK_RESIZE_BOTTOM") setResizeMode("bottom");
     } else if (active.id === "grid-creator") {
-      const snappedStart = roundTo(startMin, SLOT_MIN);
       const newB: DayBlock = {
         id: "NEW_BLOCK",
-        taskId: tasks[0]?.id || "temp",
-        startMin: snappedStart,
-        lengthMin: SLOT_MIN,
+        task_id: tasks[0]?.id || "temp",
+        date: "", // This will be set on drop
+        start_slot: startSlot,
+        end_slot: startSlot + 1,
       };
       setNewBlock(newB);
       dragInfo.current = {
-        startMin: newB.startMin,
-        lengthMin: newB.lengthMin,
-        grabOffsetMin: 0,
+        start_slot: newB.start_slot,
+        end_slot: newB.end_slot,
+        grabOffset_slot: 0,
         metrics,
       };
     }
@@ -79,40 +82,40 @@ export const useCalendarDnD = (
     const { delta, activatorEvent } = event;
     if (!dragInfo.current) return;
 
-    const { metrics, startMin, lengthMin, grabOffsetMin } = dragInfo.current;
-    const step = (activatorEvent as PointerEvent).altKey ? 5 : SLOT_MIN;
+    const { metrics, start_slot, end_slot, grabOffset_slot } = dragInfo.current;
 
     const initialY = (activatorEvent as PointerEvent).clientY;
     const currentY = initialY + delta.y;
     const currentMin = yToMinutes(currentY, metrics);
+    const currentSlot = minsToSlots(currentMin);
 
     if (newBlock) {
-      const newLength = roundTo(currentMin - newBlock.startMin, step);
-      if (newLength >= SLOT_MIN) {
-        setNewBlock({ ...newBlock, lengthMin: newLength });
+      const new_end_slot = currentSlot;
+      if (new_end_slot > newBlock.start_slot) {
+        setNewBlock({ ...newBlock, end_slot: new_end_slot });
       }
     } else if (activeBlock) {
       if (resizeMode === "top") {
-        const snappedMin = roundTo(currentMin, step);
-        const endMin = startMin + lengthMin;
-        const newStart = clampStart(snappedMin, SLOT_MIN, metrics);
-        const newLength = endMin - newStart;
-        if (newLength >= SLOT_MIN) {
+        const new_start_slot = Math.min(currentSlot, end_slot - 1);
+        if (new_start_slot < end_slot) {
           setActiveBlock({
             ...activeBlock,
-            startMin: newStart,
-            lengthMin: newLength,
+            start_slot: new_start_slot,
           });
         }
       } else if (resizeMode === "bottom") {
-        const newLength = roundTo(currentMin - activeBlock.startMin, step);
-        if (newLength >= SLOT_MIN) {
-          setActiveBlock({ ...activeBlock, lengthMin: newLength });
+        const new_end_slot = Math.max(currentSlot, start_slot + 1);
+        if (new_end_slot > start_slot) {
+          setActiveBlock({ ...activeBlock, end_slot: new_end_slot });
         }
       } else {
-        const snappedMin = roundTo(currentMin - grabOffsetMin, step);
-        const newStart = clampStart(snappedMin, lengthMin, metrics);
-        setActiveBlock({ ...activeBlock, startMin: newStart });
+        const new_start_slot = currentSlot - grabOffset_slot;
+        const length = end_slot - start_slot;
+        setActiveBlock({
+          ...activeBlock,
+          start_slot: new_start_slot,
+          end_slot: new_start_slot + length,
+        });
       }
     }
   };
@@ -132,14 +135,18 @@ export const useCalendarDnD = (
       active.data.current?.type === "TASK" &&
       String(over.id).startsWith("slot-")
     ) {
-      const task = active.data.current?.task;
+      const task = active.data.current?.task as Task;
       const startMin = Number(String(over.id).replace("slot-", ""));
-      const lengthMin = roundToSlot(Math.max(30, task.est ?? 30));
+      const start_slot = minsToSlots(startMin);
+      const length_slots = minsToSlots(
+        Math.max(30, task.est_minutes ?? 30)
+      );
       const newB: DayBlock = {
         id: uuid(),
-        taskId: task.id,
-        startMin: startMin,
-        lengthMin: lengthMin,
+        task_id: task.id,
+        date: "", // This should be passed in
+        start_slot,
+        end_slot: start_slot + length_slots,
       };
       setBlocks((b) => [...b, newB]);
     }
@@ -167,14 +174,17 @@ export const useCalendarDnD = (
       return;
     }
 
-    const task = active.data.current?.task;
+    const task = active.data.current?.task as Task;
     const startMin = Number(String(over.id).replace("slot-", ""));
-    const lengthMin = roundToSlot(Math.max(30, task.est ?? 30));
+    const start_slot = minsToSlots(startMin);
+    const length_slots = minsToSlots(Math.max(30, task.est_minutes ?? 30));
+
     const newB: DayBlock = {
       id: "PREVIEW",
-      taskId: task.id,
-      startMin: startMin,
-      lengthMin: lengthMin,
+      task_id: task.id,
+      date: "",
+      start_slot,
+      end_slot: start_slot + length_slots,
     };
     setPreviewBlock(newB);
   };

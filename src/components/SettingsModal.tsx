@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import LabelInput from "./LabelInput";
 
@@ -53,13 +53,15 @@ export default function SettingsModal({
           <div className="grid grid-cols-2 gap-4">
             <LabelInput
               label="Focus"
+              type="number"
               value={localWorkMin}
-              setValue={setLocalWorkMin}
+              onChange={(e) => setLocalWorkMin(Number(e.target.value))}
             />
             <LabelInput
               label="Break"
+              type="number"
               value={localBreakMin}
-              setValue={setLocalBreakMin}
+              onChange={(e) => setLocalBreakMin(Number(e.target.value))}
             />
           </div>
         </div>

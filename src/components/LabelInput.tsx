@@ -1,24 +1,16 @@
-import React from "react";
+// import React from "react";
 
-export default function LabelInput({
-  label,
-  value,
-  setValue,
-}: {
+type LabelInputProps = {
   label: string;
-  value: number;
-  setValue: (n: number) => void;
-}) {
+} & React.ComponentProps<"input">;
+
+export default function LabelInput({ label, ...props }: LabelInputProps) {
   return (
-    <label className="grid gap-1 text-xs text-zinc-400">
-      <span>{label}</span>
+    <label className="grid grid-cols-2 items-center text-sm">
+      <span className="text-zinc-300">{label}</span>
       <input
-        type="number"
-        className="rounded-lg bg-black/30 border border-white/10 px-2 py-2 text-sm text-white"
-        value={value}
-        onChange={(e) =>
-          setValue(Math.max(1, Number(e.target.value || 0)))
-        }
+        {...props}
+        className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 outline-none focus:border-white/20"
       />
     </label>
   );

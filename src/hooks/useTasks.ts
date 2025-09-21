@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { Task } from "../types";
-import { ParsedTask } from "../lib/parsing";
 
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);

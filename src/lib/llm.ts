@@ -13,7 +13,7 @@ export async function refineTasks(tasks: Task[]): Promise<Task[]> {
   return tasks.map((t) => ({
     ...t,
     title: t.title + " (refined)",
-    est: t.est || 15,
+    est_minutes: t.est_minutes || 15,
     tags: [...(t.tags || []), "llm"],
   }));
 }

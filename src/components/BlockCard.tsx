@@ -25,6 +25,8 @@ export const BlockCard = ({
   slotHeight: number;
 }) => {
   const dayStartMin = parseHHMM(DAY_START);
+  const startMin = block.start_slot * SLOT_MIN;
+  const lengthMin = (block.end_slot - block.start_slot) * SLOT_MIN;
   const {
     attributes: DndAttributes,
     listeners: dndListeners,
@@ -58,8 +60,8 @@ export const BlockCard = ({
       onContextMenu={onContextMenu}
       className="absolute left-0 right-0 group"
       style={{
-        top: ((block.startMin - dayStartMin) / SLOT_MIN) * slotHeight,
-        height: (block.lengthMin / SLOT_MIN) * slotHeight,
+        top: ((startMin - dayStartMin) / SLOT_MIN) * slotHeight,
+        height: (lengthMin / SLOT_MIN) * slotHeight,
       }}
     >
       <div
@@ -89,7 +91,7 @@ export const BlockCard = ({
           <div className="font-medium text-zinc-100 text-sm truncate">
             {task?.title ?? "Unknown Task"}
           </div>
-          {task?.tags && task.tags.length > 0 && block.lengthMin > 30 && (
+          {task?.tags && task.tags.length > 0 && lengthMin > 30 && (
             <div className="flex gap-1 mt-1.5">
               {task.tags.slice(0, 2).map((tag) => (
                 <Chip key={tag} label={tag} />
@@ -98,10 +100,9 @@ export const BlockCard = ({
           )}
         </div>
 
-        {block.lengthMin > 30 && (
+        {lengthMin > 30 && (
           <div className="text-zinc-400 text-[11px] mt-1">
-            {minsToHHMM(block.startMin)} -{" "}
-            {minsToHHMM(block.startMin + block.lengthMin)}
+            {minsToHHMM(startMin)} - {minsToHHMM(startMin + lengthMin)}
           </div>
         )}
 
