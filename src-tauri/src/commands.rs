@@ -92,9 +92,15 @@ pub fn update_task(task: Task, state: State<AppState>) -> Result<(), String> {
 
 #[tauri::command]
 pub fn delete_task(id: String, state: State<AppState>) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
-    conn.execute("DELETE FROM tasks WHERE id = ?1", params![id])
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    tx.execute("DELETE FROM day_blocks WHERE task_id = ?1", params![&id])
         .map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM tasks WHERE id = ?1", params![&id])
+        .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
 
