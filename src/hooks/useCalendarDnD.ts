@@ -10,8 +10,7 @@ import {
 import {
   DAY_END,
   DAY_START,
-  NUDGE_MIN,
-  SLOT_MIN
+  SLOT_MIN,
 } from "../lib/time";
 import { parseHHMM } from "../lib/time";
 import { uuid } from "../lib/utils";

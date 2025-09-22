@@ -45,7 +45,7 @@ export type RightPane = "todos" | "today" | "notes";
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
   const { tasks, addTask, updateTask, deleteTask } = useTasks();
-  const [blocks, setBlocks, undoBlocks, redoBlocks, canUndo, canRedo] = useHistoryState<DayBlock[]>([]);
+  const [blocks, setBlocks, undoBlocks, redoBlocks] = useHistoryState<DayBlock[]>([]);
   const [zoom, setZoom] = useState(1.6);
   const slotHeight = (BASE_SLOT_HEIGHT / 6) * zoom;
 
@@ -250,6 +250,24 @@ export default function Planner() {
     y: number;
     blockId: string;
   } | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === "z") {
+          if (e.shiftKey) {
+            redoBlocks();
+          } else {
+            undoBlocks();
+          }
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [undoBlocks, redoBlocks]);
 
   const [taskContextMenu, setTaskContextMenu] = useState<{
     x: number;

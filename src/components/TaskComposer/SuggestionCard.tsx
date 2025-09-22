@@ -1,5 +1,4 @@
-import React from "react";
-import { RefineSuggestion } from "../../types/composer";
+import { RefineSuggestion, ParsedTask } from "../../types/composer";
 import {
   GitMerge,
   GitPullRequestArrow,
@@ -12,6 +11,8 @@ const KIND_ICON = {
   split: GitMerge,
   merge: GitPullRequestDraft,
 };
+
+type SuggestionKind = keyof typeof KIND_ICON;
 
 type SuggestionCardProps = {
   suggestion: RefineSuggestion;
@@ -40,7 +41,7 @@ const FieldChange = ({
 };
 
 export const SuggestionCard = ({ suggestion }: SuggestionCardProps) => {
-  const Icon = KIND_ICON[suggestion.kind] || GitPullRequestDraft;
+  const Icon = KIND_ICON[suggestion.kind as SuggestionKind] || GitPullRequestDraft;
 
   return (
     <div className="bg-white/5 p-3 rounded-lg border border-white/10 text-sm">
@@ -73,7 +74,7 @@ export const SuggestionCard = ({ suggestion }: SuggestionCardProps) => {
 
       {suggestion.kind === "split" && suggestion.split && (
         <div className="pl-8 space-y-1">
-          {suggestion.split.map((task, i) => (
+          {suggestion.split.map((task: ParsedTask, i: number) => (
             <p key={i} className="text-xs text-amber-300">
               - {task.title}
             </p>

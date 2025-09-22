@@ -24,6 +24,7 @@ type TimeGridProps = {
   selectedBlockIds: string[];
   handleBlockClick: (e: React.MouseEvent, blockId: string) => void;
   onContextMenu: (payload: { x: number; y: number; blockId: string }) => void;
+  onDoubleClickBlock: (blockId: string) => void;
 };
 
 export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
@@ -39,6 +40,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
       selectedBlockIds,
       handleBlockClick,
       onContextMenu,
+      onDoubleClickBlock,
     },
     ref
   ) => {
@@ -200,6 +202,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
                           blockId: b.id,
                         });
                       }}
+                      onDoubleClick={() => onDoubleClickBlock(b.id)}
                       slotHeight={slotHeight}
                     />
                   );

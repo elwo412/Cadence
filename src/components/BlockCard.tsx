@@ -13,6 +13,7 @@ export const BlockCard = ({
   isSelected,
   onClick,
   onContextMenu,
+  onDoubleClick,
   slotHeight,
 }: {
   block: DayBlock;
@@ -22,6 +23,7 @@ export const BlockCard = ({
   isSelected: boolean;
   onClick: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  onDoubleClick?: (e: React.MouseEvent) => void;
   slotHeight: number;
 }) => {
   const dayStartMin = parseHHMM(DAY_START);
@@ -58,6 +60,7 @@ export const BlockCard = ({
     <div
       ref={dndNodeRef}
       onContextMenu={onContextMenu}
+      onDoubleClick={onDoubleClick}
       className="absolute left-0 right-0 group px-2 py-0.5"
       style={{
         top: ((startMin - dayStartMin) / SLOT_MIN) * slotHeight,

@@ -1,3 +1,4 @@
+export type { ParsedTask } from "../types/composer";
 import { ParsedTask, Priority } from "../types/composer";
 
 const TAG_RE = /(^|\s)#([\w\-/]+)/g;
