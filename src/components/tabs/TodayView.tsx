@@ -66,13 +66,9 @@ const TodayView = React.forwardRef<HTMLDivElement, TodayViewProps>(
 
         return (
             <div
-                className="relative rounded-3xl border border-white/10 bg-transparent shadow-[0_0_110px_rgba(110,168,255,0.08)] h-full flex flex-col overflow-hidden"
+                className="glass relative rounded-3xl h-full flex flex-col overflow-hidden"
                 style={{ touchAction: "none", userSelect: "none" }}
             >
-                <div
-                    className="absolute inset-0 rounded-3xl bg-white/5 backdrop-blur-xl pointer-events-none"
-                    aria-hidden="true"
-                />
                 <button
                     onClick={() => setZoom(zoom === 1.6 ? 0.7 : 1.6)}
                     className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-black/30 flex items-center justify-center text-zinc-400 hover:text-white"

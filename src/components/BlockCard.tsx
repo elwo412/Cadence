@@ -68,15 +68,13 @@ export const BlockCard = ({
         onClick={onClick}
         {...dndListeners}
         {...DndAttributes}
-        className={`relative flex flex-col justify-between rounded-lg bg-slate-800 px-2 py-1 h-full cursor-grab border ${
+        className={`glass relative flex flex-col justify-between rounded-lg px-2 py-1 h-full cursor-grab ${
           isOverlapping
             ? "border-red-500/50"
             : isSelected
             ? "border-blue-500/80"
-            : "border-transparent"
-        } transition-colors duration-200 ${
-          isSelected ? "shadow-lg shadow-blue-500/20" : ""
-        }`}
+            : ""
+        } transition-colors duration-200`}
       >
         <div
           ref={topResizeRef}

@@ -50,7 +50,7 @@ export default function SettingsModal({
   return (
     <Modal open={open} onClose={onClose} title="Settings">
       <div className="space-y-6">
-        <div className="p-4 border border-white/10 rounded-xl">
+        <div className="glass rounded-xl p-4">
           <h3 className="text-lg font-medium text-zinc-100 mb-4">Timer</h3>
           <div className="grid grid-cols-2 gap-4">
             <LabelInput
@@ -68,7 +68,7 @@ export default function SettingsModal({
           </div>
         </div>
 
-        <div className="p-4 border border-white/10 rounded-xl">
+        <div className="glass rounded-xl p-4">
           <h3 className="text-lg font-medium text-zinc-100 mb-4">
             Integrations
           </h3>
@@ -94,7 +94,7 @@ export default function SettingsModal({
           </div>
         </div>
 
-        <div className="p-4 border border-white/10 rounded-xl">
+        <div className="glass rounded-xl p-4">
           <h3 className="text-lg font-medium text-zinc-100 mb-4">
             Default Session
           </h3>

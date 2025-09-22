@@ -420,7 +420,7 @@ export default function Planner() {
       >
         <div className="h-full w-full px-6 py-5 flex gap-6">
           {/* Left: Timer Card */}
-          <div className="flex-[0.9] rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 relative shadow-[0_0_110px_rgba(255,110,110,0.08)]">
+          <div className="glass flex-[0.9] rounded-3xl p-6 relative">
             <AnimatePresence mode="wait">
               {rightPane === "today" ? (
                 <motion.div
@@ -652,7 +652,7 @@ export default function Planner() {
 
           {/* Right: Todo + LLM assist */}
           <div className="flex-[1.1] grid grid-rows-[auto_1fr_auto] gap-4">
-            <div className="flex items-center gap-2 rounded-3xl border border-white/10 bg-black/20 p-1">
+            <div className="glass flex items-center gap-2 rounded-3xl p-1">
               {(["todos", "today", "notes"] as RightPane[]).map((p) => (
                 <button
                   key={p}
@@ -709,7 +709,7 @@ export default function Planner() {
               )}
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 text-xs text-zinc-400 flex items-center justify-between">
+            <div className="glass rounded-3xl p-4 text-xs text-zinc-400 flex items-center justify-between">
               <div>
                 {suggestion || "Click the wand to tighten titles + add durations."}
               </div>

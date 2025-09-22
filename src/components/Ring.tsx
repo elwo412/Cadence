@@ -37,7 +37,7 @@ export default function Ring({
         cy={size / 2}
         r={r}
         strokeWidth={stroke}
-        stroke="#101319"
+        stroke="#10111a"
         fill="none"
       />
       <circle
