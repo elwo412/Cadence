@@ -89,6 +89,8 @@ const TodayView = React.forwardRef<HTMLDivElement, TodayViewProps>(
                     handleBlockClick={handleBlockClick}
                     onContextMenu={onContextMenu}
                     onDoubleClickBlock={onDoubleClickBlock}
+                    zoom={zoom}
+                    setZoom={setZoom}
                 />
             </div>
         );

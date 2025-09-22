@@ -1,34 +1,30 @@
-import { SLOT_MIN } from "./time";
+import { DayBlock, Task } from "../types";
 
-// timeGrid.ts
-export interface GridMetrics {
-    el: HTMLElement;
-    dayStartMin: number;
-    dayEndMin: number;
-    slotHeight: number;
-}
+export const DRAG_DATA_KEY = "application/cadence-dnd";
 
-export function yToMinutes(clientY: number, m: GridMetrics) {
-    const rect = m.el.getBoundingClientRect();
-    const localY = clientY - rect.top + m.el.scrollTop;
-    const minsFromTop = (localY / m.slotHeight) * SLOT_MIN;
-    return m.dayStartMin + minsFromTop;
-}
+export type DragData = {
+  type: "TASK" | "BLOCK";
+  task?: Task;
+  block?: DayBlock;
+};
 
-export const roundTo = (mins: number, step = 30) =>
-    Math.round(mins / step) * step;
+export const yToSlot = (
+  y: number,
+  containerTop: number,
+  slotHeight: number
+): number => {
+  return Math.floor((y - containerTop) / slotHeight);
+};
 
-export function clampStart(
-    startMin: number,
-    lengthMin: number,
-    m: GridMetrics
-) {
-    const lo = m.dayStartMin;
-    const hi = m.dayEndMin - Math.max(lengthMin, SLOT_MIN);
-    return Math.max(lo, Math.min(hi, startMin));
-}
-
-export function minutesToTopPx(mins: number, m: GridMetrics) {
-    const slotsFromTop = (mins - m.dayStartMin) / SLOT_MIN;
-    return slotsFromTop * m.slotHeight;
-}
+export const snapToGrid = (
+  deltaY: number,
+  slotHeight: number,
+  snapThreshold = 0.5
+) => {
+  const anom = deltaY / slotHeight;
+  const rem = anom % 1;
+  if (rem > snapThreshold) {
+    return Math.ceil(anom) * slotHeight;
+  }
+  return Math.floor(anom) * slotHeight;
+};

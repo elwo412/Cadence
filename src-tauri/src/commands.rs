@@ -84,8 +84,8 @@ pub fn get_tasks(db: State<Database>) -> Result<Vec<Task>, CommandError> {
 
 #[tauri::command]
 pub fn add_task(task: Task, db: State<Database>) -> Result<(), CommandError> {
-    let tags_json = serde_json::to_string(&task.tags)?;
     let conn = db.0.lock().unwrap();
+    let tags_json = serde_json::to_string(&task.tags)?;
     conn.execute(
         "INSERT INTO tasks (id, title, done, est_minutes, notes, project, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
@@ -103,18 +103,18 @@ pub fn add_task(task: Task, db: State<Database>) -> Result<(), CommandError> {
 
 #[tauri::command]
 pub fn update_task(task: Task, db: State<Database>) -> Result<(), CommandError> {
-    let tags_json = serde_json::to_string(&task.tags)?;
     let conn = db.0.lock().unwrap();
+    let tags_json = serde_json::to_string(&task.tags)?;
     conn.execute(
-        "UPDATE tasks SET title = ?1, done = ?2, est_minutes = ?3, notes = ?4, project = ?5, tags = ?6 WHERE id = ?7",
+        "UPDATE tasks SET title = ?2, done = ?3, est_minutes = ?4, notes = ?5, project = ?6, tags = ?7 WHERE id = ?1",
         params![
+            task.id,
             task.title,
             task.done,
             task.est_minutes,
             task.notes,
             task.project,
-            tags_json,
-            task.id
+            tags_json
         ],
     )?;
     Ok(())
@@ -122,25 +122,15 @@ pub fn update_task(task: Task, db: State<Database>) -> Result<(), CommandError> 
 
 #[tauri::command]
 pub fn delete_task(id: String, db: State<Database>) -> Result<(), CommandError> {
-    let mut conn = db.0.lock().unwrap();
-    let tx = conn.transaction()?;
-
-    tx.execute("DELETE FROM day_blocks WHERE task_id = ?1", params![&id])?;
-    tx.execute("DELETE FROM tasks WHERE id = ?1", params![&id])?;
-
-    tx.commit()?;
+    let conn = db.0.lock().unwrap();
+    conn.execute("DELETE FROM tasks WHERE id = ?1", params![id])?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn get_blocks_for_date(
-    date: String,
-    db: State<Database>,
-) -> Result<Vec<DayBlock>, CommandError> {
+pub fn get_blocks_for_date(date: String, db: State<Database>) -> Result<Vec<DayBlock>, CommandError> {
     let conn = db.0.lock().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT id, task_id, date, start_slot, end_slot FROM day_blocks WHERE date = ?1",
-    )?;
+    let mut stmt = conn.prepare("SELECT id, task_id, date, start_slot, end_slot FROM day_blocks WHERE date = ?1")?;
     let block_iter = stmt.query_map(params![date], |row| {
         Ok(DayBlock {
             id: row.get(0)?,
@@ -166,31 +156,27 @@ pub fn save_blocks_for_date(
 ) -> Result<(), CommandError> {
     let mut conn = db.0.lock().unwrap();
     let tx = conn.transaction()?;
-
     tx.execute("DELETE FROM day_blocks WHERE date = ?1", params![date])?;
-
     for block in blocks {
         tx.execute(
             "INSERT INTO day_blocks (id, task_id, date, start_slot, end_slot) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![block.id, block.task_id, block.date, block.start_slot, block.end_slot],
         )?;
     }
-
     tx.commit()?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn get_settings(
-    db: State<Database>,
-) -> Result<std::collections::HashMap<String, String>, CommandError> {
+pub fn get_settings(db: State<Database>) -> Result<std::collections::HashMap<String, String>, CommandError> {
     let conn = db.0.lock().unwrap();
     let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
+    let setting_iter = stmt.query_map(params![], |row| {
+        Ok((row.get(0)?, row.get(1)?))
+    })?;
     let mut settings = std::collections::HashMap::new();
-    let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
-
-    for row in rows {
-        let (key, value): (String, String) = row?;
+    for setting in setting_iter {
+        let (key, value) = setting?;
         settings.insert(key, value);
     }
     Ok(settings)

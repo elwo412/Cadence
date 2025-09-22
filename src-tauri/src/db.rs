@@ -26,7 +26,8 @@ pub fn init_db(handle: &AppHandle) -> Result<Database, rusqlite::Error> {
             est_minutes INTEGER,
             notes TEXT,
             project TEXT,
-            tags TEXT
+            tags TEXT,
+            created_at TEXT
         );
         CREATE TABLE IF NOT EXISTS day_blocks (
             id TEXT PRIMARY KEY,
