@@ -19,3 +19,84 @@ pub struct DayBlock {
     pub start_slot: i32,
     pub end_slot: i32,
 }
+
+// --- From frontend `types/composer.ts` ---
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ParsedTask {
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub est: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct EnrichResponse {
+    pub tasks: Vec<ParsedTask>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PlanWithAIResponse {
+    pub assistant_text: String,
+    pub proposed_tasks: Vec<ParsedTask>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub questions: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RefineSuggestion {
+    pub kind: String, // "update" | "split" | "merge"
+    #[serde(rename = "targetIds")]
+    pub target_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updates: Option<ParsedTask>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub split: Option<Vec<ParsedTask>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RefineResponse {
+    pub assistant_text: String,
+    pub suggestions: Vec<RefineSuggestion>,
+}
+
+// --- For OpenAI API ---
+
+#[derive(Serialize, Debug)]
+pub struct OpenAIRequest<'a> {
+    pub model: &'a str,
+    pub messages: Vec<OpenAIMessage<'a>>,
+    pub response_format: ResponseFormat<'a>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OpenAIMessage<'a> {
+    pub role: &'a str,
+    pub content: String,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ResponseFormat<'a> {
+    #[serde(rename = "type")]
+    pub response_type: &'a str,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OpenAIResponse {
+    pub choices: Vec<Choice>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Choice {
+    pub message: Message,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Message {
+    pub content: String,
+}

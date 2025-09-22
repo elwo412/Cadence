@@ -67,7 +67,10 @@ pub fn run() {
             commands::get_blocks_for_date,
             commands::save_blocks_for_date,
             commands::get_settings,
-            commands::update_setting
+            commands::update_setting,
+            commands::llm_enrich,
+            commands::llm_plan,
+            commands::llm_refine
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

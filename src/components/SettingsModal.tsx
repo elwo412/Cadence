@@ -8,7 +8,8 @@ type SettingsModalProps = {
   onClose: () => void;
   workMin: number;
   breakMin: number;
-  onSave: (workMin: number, breakMin: number) => void;
+  apiKey: string;
+  onSave: (workMin: number, breakMin: number, apiKey: string) => void;
   mode: TimerMode;
   setMode: (mode: TimerMode) => void;
   setSecs: (secs: number) => void;
@@ -19,6 +20,7 @@ export default function SettingsModal({
   onClose,
   workMin,
   breakMin,
+  apiKey,
   onSave,
   mode,
   setMode,
@@ -26,18 +28,20 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   const [localWorkMin, setLocalWorkMin] = useState(workMin);
   const [localBreakMin, setLocalBreakMin] = useState(breakMin);
+  const [localApiKey, setLocalApiKey] = useState(apiKey);
   const [localMode, setLocalMode] = useState(mode);
 
   useEffect(() => {
     if (open) {
       setLocalWorkMin(workMin);
       setLocalBreakMin(breakMin);
+      setLocalApiKey(apiKey);
       setLocalMode(mode);
     }
-  }, [open, workMin, breakMin, mode]);
+  }, [open, workMin, breakMin, apiKey, mode]);
 
   const handleSave = () => {
-    onSave(localWorkMin, localBreakMin);
+    onSave(localWorkMin, localBreakMin, localApiKey);
     setMode(localMode);
     setSecs(localMode === "focus" ? localWorkMin * 60 : localBreakMin * 60);
     onClose();
@@ -61,6 +65,32 @@ export default function SettingsModal({
               value={localBreakMin}
               onChange={(e) => setLocalBreakMin(Number(e.target.value))}
             />
+          </div>
+        </div>
+
+        <div className="p-4 border border-white/10 rounded-xl">
+          <h3 className="text-lg font-medium text-zinc-100 mb-4">
+            Integrations
+          </h3>
+          <div className="grid grid-cols-1 gap-2">
+            <LabelInput
+              label="OpenAI API Key"
+              type="password"
+              value={localApiKey}
+              onChange={(e) => setLocalApiKey(e.target.value)}
+              placeholder="sk-..."
+            />
+            <p className="text-xs text-zinc-500 px-1">
+              Used for AI-powered features. You can find your key on the{" "}
+              <a
+                href="https://platform.openai.com/api-keys"
+                target="_blank"
+                className="text-blue-400 hover:underline"
+              >
+                OpenAI dashboard
+              </a>
+              .
+            </p>
           </div>
         </div>
 

@@ -36,13 +36,14 @@ import { useTimer } from "../hooks/useTimer";
 import SettingsModal from "../components/SettingsModal";
 import TaskComposer from "../components/TaskComposer";
 import { invoke } from "@tauri-apps/api/core";
-import { ParsedTask } from "../lib/parsing";
+import { ParsedTask } from "../types/composer";
+import { Toaster } from "react-hot-toast";
 
 export type RightPane = "todos" | "today" | "notes";
 
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
-  const { tasks, addTask, toggleTask, deleteTask } = useTasks();
+  const { tasks, addTask, updateTask, deleteTask } = useTasks();
   const [blocks, setBlocks] = useState<DayBlock[]>([]);
   const [activeFocus, setActiveFocus] = useState<string[]>([]);
   const [log, setLog] = useState<Session[]>([]);
@@ -50,6 +51,7 @@ export default function Planner() {
   // Timer state
   const [workMin, setWorkMin] = useState(25);
   const [breakMin, setBreakMin] = useState(5);
+  const [apiKey, setApiKey] = useState("");
 
   useEffect(() => {
     const fetchBlocks = async () => {
@@ -65,6 +67,9 @@ export default function Planner() {
       }
       if (settings.breakMin) {
         setBreakMin(Number(settings.breakMin));
+      }
+      if (settings.apiKey) {
+        setApiKey(settings.apiKey);
       }
     };
     fetchBlocks();
@@ -83,6 +88,13 @@ export default function Planner() {
     setLog((l) => [sessionWithTasks, ...l]);
     if (session.kind === "focus") {
       setActiveFocus([]);
+    }
+  };
+
+  const toggleTask = (id: string) => {
+    const task = tasks.find((t) => t.id === id);
+    if (task) {
+      updateTask(id, { done: !task.done });
     }
   };
 
@@ -256,11 +268,17 @@ export default function Planner() {
   // Subtle LLM suggestion pane (simulated)
   const [suggestion] = useState<string | null>(null);
 
-  const handleSaveSettings = (newWorkMin: number, newBreakMin: number) => {
+  const handleSaveSettings = (
+    newWorkMin: number,
+    newBreakMin: number,
+    newApiKey: string
+  ) => {
     setWorkMin(newWorkMin);
     setBreakMin(newBreakMin);
+    setApiKey(newApiKey);
     invoke("update_setting", { key: "workMin", value: String(newWorkMin) });
     invoke("update_setting", { key: "breakMin", value: String(newBreakMin) });
+    invoke("update_setting", { key: "apiKey", value: newApiKey });
   };
 
   // Load notes from local storage on mount
@@ -375,15 +393,7 @@ export default function Planner() {
 
   const onTaskCreate = (parsedTasks: ParsedTask[]) => {
     for (const p of parsedTasks) {
-      for (let i = 0; i < (p.count ?? 1); i++) {
-        addTask({
-          title: p.title,
-          tags: p.tags,
-          est_minutes: p.est ?? 0,
-          notes: null,
-          project: null,
-        });
-      }
+      addTask(p);
     }
     setShowTaskComposer(false);
   };
@@ -756,6 +766,7 @@ export default function Planner() {
           onClose={() => setShowSettings(false)}
           workMin={workMin}
           breakMin={breakMin}
+          apiKey={apiKey}
           onSave={handleSaveSettings}
           mode={mode}
           setMode={setMode}
@@ -794,7 +805,16 @@ export default function Planner() {
       <TaskComposer
         open={showTaskComposer}
         onClose={() => setShowTaskComposer(false)}
-        onCreate={onTaskCreate}
+        tasks={tasks}
+        onTaskAdd={addTask}
+        onTaskUpdate={updateTask}
+        onTaskDelete={deleteTask}
+      />
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          className: "!bg-zinc-800 !text-zinc-200 !border !border-white/10",
+        }}
       />
     </DndContext>
   );

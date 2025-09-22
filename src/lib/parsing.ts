@@ -1,17 +1,15 @@
-export interface ParsedTask {
-  title: string;
-  est?: number; // minutes
-  tags: string[];
-  priority?: number; // 1..3
-  count?: number; // for xN duplication
-}
+import { ParsedTask, Priority } from "../types/composer";
 
 const TAG_RE = /(^|\s)#([\w\-/]+)/g;
 const EST_RE = /~(\d+)m\b/i;
 const PRI_RE = /!p?([123])\b/i;
 const MULT_RE = /x(\d+)\b/i;
 
-export function parseLine(s: string): ParsedTask | null {
+interface InternalParsedTask extends ParsedTask {
+  count?: number;
+}
+
+export function parseLine(s: string): InternalParsedTask | null {
   let title = s.trim();
   if (!title) return null;
 
@@ -30,9 +28,9 @@ export function parseLine(s: string): ParsedTask | null {
   });
 
   // priority
-  let priority: number | undefined;
+  let priority: Priority | undefined;
   title = title.replace(PRI_RE, (_m, p) => {
-    priority = Number(p);
+    priority = Number(p) as Priority;
     return "";
   });
 
@@ -47,6 +45,9 @@ export function parseLine(s: string): ParsedTask | null {
   return { title, est, tags, priority, count };
 }
 
-export function parseLines(s: string): ParsedTask[] {
-  return s.split(/\n|[;]+/).map(parseLine).filter(Boolean) as ParsedTask[];
+export function parseLines(s: string): InternalParsedTask[] {
+  return s
+    .split(/\n|[;]+/)
+    .map(parseLine)
+    .filter(Boolean) as InternalParsedTask[];
 }

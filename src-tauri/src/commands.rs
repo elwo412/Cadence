@@ -1,5 +1,8 @@
-use crate::models::{DayBlock, Task};
-use rusqlite::{params, Connection};
+use crate::models::{
+    DayBlock, EnrichResponse, OpenAIRequest, OpenAIMessage, OpenAIResponse, ParsedTask,
+    PlanWithAIResponse, RefineResponse, ResponseFormat, Task,
+};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::sync::Mutex;
 use tauri::State;
 
@@ -176,4 +179,230 @@ pub fn update_setting(key: String, value: String, state: State<AppState>) -> Res
     )
     .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn llm_enrich(
+    tasks: Vec<ParsedTask>,
+    sys_prompt: String,
+    state: State<'_, AppState>,
+) -> Result<EnrichResponse, String> {
+    let api_key = {
+        let conn = state.db.lock().unwrap();
+        let api_key_result: Result<Option<String>, rusqlite::Error> = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'apiKey'",
+                [],
+                |row| row.get(0),
+            )
+            .optional();
+
+        api_key_result
+            .map_err(|e| e.to_string())?
+    };
+
+    let api_key = api_key.ok_or_else(|| "OpenAI API key not found in settings".to_string())?;
+
+    let client = reqwest::Client::new();
+
+    let user_content =
+        serde_json::to_string(&tasks).map_err(|e| format!("Serialization error: {}", e))?;
+
+    let request = OpenAIRequest {
+        model: "gpt-4o-mini",
+        messages: vec![
+            OpenAIMessage {
+                role: "system",
+                content: sys_prompt,
+            },
+            OpenAIMessage {
+                role: "user",
+                content: user_content,
+            },
+        ],
+        response_format: ResponseFormat {
+            response_type: "json_object",
+        },
+    };
+
+    let response = client
+        .post("https://api.openai.com/v1/chat/completions")
+        .bearer_auth(api_key)
+        .json(&request)
+        .send()
+        .await
+        .map_err(|e| format!("Request error: {}", e))?;
+
+    if response.status().is_success() {
+        let text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read response text: {}", e))?;
+        let openai_response: OpenAIResponse =
+            serde_json::from_str(&text).map_err(|e| format!("JSON parsing error: {}", e))?;
+        let enriched_content = openai_response
+            .choices
+            .get(0)
+            .ok_or("No choices in response")?
+            .message
+            .content
+            .clone();
+        serde_json::from_str(&enriched_content)
+            .map_err(|e| format!("Final content parsing error: {}", e))
+    } else {
+        let status = response.status();
+        let text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Could not read error body".to_string());
+        Err(format!("API Error: {} - {}", status, text))
+    }
+}
+
+#[tauri::command]
+pub async fn llm_plan(
+    messages: Vec<OpenAIMessage<'_>>,
+    sys_prompt: String,
+    state: State<'_, AppState>,
+) -> Result<PlanWithAIResponse, String> {
+    let api_key = {
+        let conn = state.db.lock().unwrap();
+        let api_key_result: Result<Option<String>, rusqlite::Error> = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'apiKey'",
+                [],
+                |row| row.get(0),
+            )
+            .optional();
+
+        api_key_result.map_err(|e| e.to_string())?
+    };
+
+    let api_key = api_key.ok_or_else(|| "OpenAI API key not found in settings".to_string())?;
+
+    let client = reqwest::Client::new();
+
+    let mut all_messages = vec![OpenAIMessage {
+        role: "system",
+        content: sys_prompt,
+    }];
+    all_messages.extend(messages);
+
+    let request = OpenAIRequest {
+        model: "gpt-4o-mini",
+        messages: all_messages,
+        response_format: ResponseFormat {
+            response_type: "json_object",
+        },
+    };
+
+    let response = client
+        .post("https://api.openai.com/v1/chat/completions")
+        .bearer_auth(api_key)
+        .json(&request)
+        .send()
+        .await
+        .map_err(|e| format!("Request error: {}", e))?;
+
+    if response.status().is_success() {
+        let text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read response text: {}", e))?;
+        let openai_response: OpenAIResponse =
+            serde_json::from_str(&text).map_err(|e| format!("JSON parsing error: {}", e))?;
+        let content = openai_response
+            .choices
+            .get(0)
+            .ok_or("No choices in response")?
+            .message
+            .content
+            .clone();
+        serde_json::from_str(&content).map_err(|e| format!("Final content parsing error: {}", e))
+    } else {
+        let status = response.status();
+        let text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Could not read error body".to_string());
+        Err(format!("API Error: {} - {}", status, text))
+    }
+}
+
+#[tauri::command]
+pub async fn llm_refine(
+    existing: Vec<ParsedTask>,
+    notes: Option<String>,
+    sys_prompt: String,
+    state: State<'_, AppState>,
+) -> Result<RefineResponse, String> {
+    let api_key: Option<String> = {
+        let conn = state.db.lock().unwrap();
+        conn.query_row(
+            "SELECT value FROM settings WHERE key = 'apiKey'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?
+    };
+
+    let api_key = api_key.ok_or_else(|| "OpenAI API key not found in settings".to_string())?;
+
+    let client = reqwest::Client::new();
+
+    let mut user_content =
+        serde_json::to_string(&existing).map_err(|e| format!("Serialization error: {}", e))?;
+    if let Some(note_str) = notes {
+        user_content = format!("{}\n\nNotes: {}", user_content, note_str);
+    }
+
+    let request = OpenAIRequest {
+        model: "gpt-4o-mini",
+        messages: vec![
+            OpenAIMessage {
+                role: "system",
+                content: sys_prompt,
+            },
+            OpenAIMessage {
+                role: "user",
+                content: user_content,
+            },
+        ],
+        response_format: ResponseFormat {
+            response_type: "json_object",
+        },
+    };
+
+    let response = client
+        .post("https://api.openai.com/v1/chat/completions")
+        .bearer_auth(api_key)
+        .json(&request)
+        .send()
+        .await
+        .map_err(|e| format!("Request error: {}", e))?;
+
+    if response.status().is_success() {
+        let text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read response text: {}", e))?;
+        let openai_response: OpenAIResponse =
+            serde_json::from_str(&text).map_err(|e| format!("JSON parsing error: {}", e))?;
+        let content = openai_response
+            .choices
+            .get(0)
+            .ok_or("No choices in response")?
+            .message
+            .content
+            .clone();
+        serde_json::from_str(&content).map_err(|e| format!("Final content parsing error: {}", e))
+    } else {
+        let status = response.status();
+        let text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Could not read error body".to_string());
+        Err(format!("API Error: {} - {}", status, text))
+    }
 }

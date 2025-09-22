@@ -2,18 +2,55 @@
 // In a real app, this would be a separate package.
 // For now, we'll just simulate a network request.
 
-import { Task } from "../types";
+import {
+  EnrichResponse,
+  ParsedTask,
+  PlanWithAIResponse,
+  RefineResponse,
+} from "../types/composer";
+import { invoke } from "@tauri-apps/api/core";
+import toast from "react-hot-toast";
 
-// Takes a list of tasks and returns a "refined" list.
-export async function refineTasks(tasks: Task[]): Promise<Task[]> {
-  // Simulate a network request
-  await new Promise((resolve) => setTimeout(resolve, 500));
+// A placeholder for a generic API call helper
+async function postJSON(command: string, payload: any): Promise<any> {
+  // In a real web app, this would be a fetch call.
+  // For Tauri, we'll invoke a Rust command.
+  try {
+    const result = await invoke(command, payload);
+    return result;
+  } catch (error) {
+    if (typeof error === "string" && error.includes("API key not found")) {
+      toast.error("OpenAI API key not set. Please add it in Settings.");
+    }
+    console.error(`Error invoking command '${command}':`, error);
+    // In a real app, you'd want more robust error handling
+    throw new Error("Failed to communicate with the backend.");
+  }
+}
 
-  // Simulate an LLM assist that adds durations & tags, and rephrases titles slightly
-  return tasks.map((t) => ({
-    ...t,
-    title: t.title + " (refined)",
-    est_minutes: t.est_minutes || 15,
-    tags: [...(t.tags || []), "llm"],
-  }));
+export async function llmEnrich(tasks: ParsedTask[]): Promise<EnrichResponse> {
+  const sys = `You enrich tasks with metadata only. NEVER change titles. 
+Return JSON: { "tasks": [{ "title": SAME_AS_INPUT, "est": minutes (5..180), "tags": ["kebab"], "priority": 1|2|3 }] }`;
+  return postJSON("llm_enrich", { tasks, sysPrompt: sys });
+}
+
+export async function llmPlanWithAI(
+  messages: { role: "user" | "assistant" | "system"; content: string }[],
+  constraints: any
+): Promise<PlanWithAIResponse> {
+  const sys = `You are a planning copilot. Break goals into small, actionable tasks. Each task must have a verb-first title and an estimated duration in minutes (est) between 5 and 90.
+Respect user's working hours and the following constraints: ${JSON.stringify(
+    constraints
+  )}.
+Return JSON following this exact schema: { "assistant_text": "...", "proposed_tasks": [{ "title": "A task title", "est": 30 }], "questions": ["..."] }`;
+  return postJSON("llm_plan", { messages, sysPrompt: sys });
+}
+
+export async function llmRefine(
+  existing: ParsedTask[],
+  notes?: string
+): Promise<RefineResponse> {
+  const sys = `Given current tasks, propose improvements. Prefer updates to metadata; keep titles unless clarity improves.
+Return JSON: { "assistant_text": "...", "suggestions": [ { "kind": "update"|"split"|"merge", "targetIds": ["..."], "updates": {...}, "split": [...], "reason": "..." } ] }`;
+  return postJSON("llm_refine", { existing, notes, sysPrompt: sys });
 }

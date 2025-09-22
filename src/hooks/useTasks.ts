@@ -1,32 +1,42 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { Task } from "../types";
+import { v4 as uuidv4 } from "uuid";
+import { ParsedTask } from "../types/composer";
 
-export const useTasks = () => {
+export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  const fetchTasks = async () => {
-    const fetchedTasks = await invoke<Task[]>("get_tasks");
-    setTasks(fetchedTasks);
-  };
-
   useEffect(() => {
-    fetchTasks();
+    invoke("get_tasks").then((res) => setTasks(res as Task[]));
   }, []);
 
-  const addTask = async (task: Omit<Task, "id" | "done">) => {
-    const newTask = {
-      ...task,
-      id: crypto.randomUUID(),
+  const addTask = (task: ParsedTask) => {
+    const newTask: Task = {
+      id: uuidv4(),
+      title: task.title,
       done: false,
+      tags: task.tags || [],
+      priority: task.priority || 2,
+      est_minutes: task.est || 25, // Default to 25 mins
+      created_at: new Date().toISOString(),
     };
-    await invoke("add_task", { task: newTask });
-    await fetchTasks();
+    invoke("add_task", { task: newTask }).then(() => {
+      setTasks((prev) => [...prev, newTask]);
+    });
   };
 
-  const updateTask = async (task: Task) => {
-    await invoke("update_task", { task });
-    await fetchTasks();
+  const updateTask = (id: string, updates: Partial<Task>) => {
+    const originalTask = tasks.find((t) => t.id === id);
+    if (!originalTask) return;
+
+    const updatedTask = { ...originalTask, ...updates };
+
+    invoke("update_task", { task: updatedTask }).then(() => {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? updatedTask : t))
+      );
+    });
   };
 
   const toggleTask = async (id: string) => {
@@ -37,16 +47,11 @@ export const useTasks = () => {
     }
   };
 
-  const deleteTask = async (id: string) => {
-    await invoke("delete_task", { id });
-    await fetchTasks();
+  const deleteTask = (id: string) => {
+    invoke("delete_task", { id }).then(() => {
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+    });
   };
 
-  return {
-    tasks,
-    addTask,
-    updateTask,
-    toggleTask,
-    deleteTask,
-  };
-};
+  return { tasks, addTask, updateTask, deleteTask };
+}

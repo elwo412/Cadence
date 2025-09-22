@@ -26,6 +26,8 @@ serde_json = "1"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 thiserror = "1.0.61"
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
 
 # The following patch is added to force an update to resolve a security vulnerability in glib.
 # See: https://github.com/advisories/GHSA-23x9-35p2-x6r8

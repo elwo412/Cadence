@@ -1,7 +1,8 @@
-import { CheckSquare2, Target } from "lucide-react";
+import { Target } from "lucide-react";
 import React from "react";
 import { Task } from "../types";
 import Chip from "./Chip";
+import { Checkbox } from "./Checkbox";
 
 type TaskRowProps = {
   task: Task;
@@ -33,16 +34,11 @@ const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
         className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2 cursor-grab"
       >
         {interactive && (
-          <button
-            onClick={() => onToggle?.(task.id)}
-            className={`h-5 w-5 rounded-md border ${
-              task.done
-                ? "bg-emerald-400 border-emerald-300"
-                : "border-white/20 bg-white/0"
-            } flex items-center justify-center`}
-          >
-            {task.done && <CheckSquare2 size={14} className="text-black" />}
-          </button>
+          <Checkbox
+            id={task.id}
+            checked={task.done}
+            onCheckedChange={() => onToggle?.(task.id)}
+          />
         )}
         <div
           className={`flex-1 text-sm whitespace-nowrap ${
