@@ -24,7 +24,7 @@ import Modal from "../components/Modal";
 import TodosView from "../components/tabs/TodosView";
 import TodayView from "../components/tabs/TodayView";
 import NotesView from "../components/tabs/NotesView";
-import { minsToHHMM, SLOT_MIN } from "../lib/time";
+import { minsToHHMM, SLOT_MIN, SLOT_HEIGHT as BASE_SLOT_HEIGHT } from "../lib/time";
 import TaskRow from "../components/TaskRow";
 import { AnimatePresence, motion } from "framer-motion";
 import { CustomPointerSensor } from "../lib/sensors";
@@ -38,13 +38,17 @@ import TaskComposer from "../components/TaskComposer";
 import { invoke } from "@tauri-apps/api/core";
 import { ParsedTask } from "../types/composer";
 import { Toaster } from "react-hot-toast";
+import { useHistoryState } from "../hooks/useHistoryState";
 
 export type RightPane = "todos" | "today" | "notes";
 
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
   const { tasks, addTask, updateTask, deleteTask } = useTasks();
-  const [blocks, setBlocks] = useState<DayBlock[]>([]);
+  const [blocks, setBlocks, undoBlocks, redoBlocks] = useHistoryState<DayBlock[]>([]);
+  const [zoom, setZoom] = useState(1.6);
+  const slotHeight = (BASE_SLOT_HEIGHT / 6) * zoom;
+
   const [activeFocus, setActiveFocus] = useState<string[]>([]);
   const [log, setLog] = useState<Session[]>([]);
 
@@ -126,7 +130,7 @@ export default function Planner() {
     handleDragMove,
     handleDragEnd,
     handleDragOver,
-  } = useCalendarDnD(gridRef, tasks, blocks, setBlocks);
+  } = useCalendarDnD(gridRef, tasks, blocks, setBlocks, slotHeight);
 
   const handleDndDragStart = (event: DragStartEvent) => {
     handleDragStart(event);
@@ -246,6 +250,24 @@ export default function Planner() {
     y: number;
     blockId: string;
   } | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === "z") {
+          if (e.shiftKey) {
+            redoBlocks();
+          } else {
+            undoBlocks();
+          }
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [undoBlocks, redoBlocks]);
 
   const [taskContextMenu, setTaskContextMenu] = useState<{
     x: number;
@@ -416,7 +438,7 @@ export default function Planner() {
       >
         <div className="h-full w-full px-6 py-5 flex gap-6">
           {/* Left: Timer Card */}
-          <div className="flex-[0.9] rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 relative shadow-[0_0_110px_rgba(255,110,110,0.08)]">
+          <div className="glass flex-[0.9] rounded-3xl p-6 relative">
             <AnimatePresence mode="wait">
               {rightPane === "today" ? (
                 <motion.div
@@ -648,7 +670,7 @@ export default function Planner() {
 
           {/* Right: Todo + LLM assist */}
           <div className="flex-[1.1] grid grid-rows-[auto_1fr_auto] gap-4">
-            <div className="flex items-center gap-2 rounded-3xl border border-white/10 bg-black/20 p-1">
+            <div className="glass flex items-center gap-2 rounded-3xl p-1">
               {(["todos", "today", "notes"] as RightPane[]).map((p) => (
                 <button
                   key={p}
@@ -691,6 +713,13 @@ export default function Planner() {
                   selectedBlockIds={selectedBlockIds}
                   setSelectedBlockIds={setSelectedBlockIds}
                   onContextMenu={setContextMenu}
+                  onDoubleClickBlock={(taskId) => {
+                    setActiveFocus((f) => [...f, taskId]);
+                    setRightPane("today");
+                  }}
+                  zoom={zoom}
+                  setZoom={setZoom}
+                  slotHeight={slotHeight}
                 />
               )}
               {rightPane === "notes" && (
@@ -698,7 +727,7 @@ export default function Planner() {
               )}
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 text-xs text-zinc-400 flex items-center justify-between">
+            <div className="glass rounded-3xl p-4 text-xs text-zinc-400 flex items-center justify-between">
               <div>
                 {suggestion || "Click the wand to tighten titles + add durations."}
               </div>

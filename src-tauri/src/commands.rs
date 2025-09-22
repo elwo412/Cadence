@@ -1,56 +1,91 @@
-use crate::models::{
-    DayBlock, EnrichResponse, OpenAIRequest, OpenAIMessage, OpenAIResponse, ParsedTask,
-    PlanWithAIResponse, RefineResponse, ResponseFormat, Task,
-};
-use rusqlite::{params, Connection, OptionalExtension};
-use std::sync::Mutex;
+use crate::db::Database;
+use crate::models::{DayBlock, EnrichResponse, PlanWithAIResponse, RefineResponse, Task};
+use reqwest;
+use rusqlite::{params, OptionalExtension};
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
-pub struct AppState {
-    pub db: Mutex<Connection>,
+#[derive(Debug, Serialize)]
+pub struct CommandError {
+    pub message: String,
+}
+
+impl From<rusqlite::Error> for CommandError {
+    fn from(error: rusqlite::Error) -> Self {
+        CommandError {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<serde_json::Error> for CommandError {
+    fn from(error: serde_json::Error) -> Self {
+        CommandError {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<reqwest::Error> for CommandError {
+    fn from(error: reqwest::Error) -> Self {
+        CommandError {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<String> for CommandError {
+    fn from(message: String) -> Self {
+        CommandError { message }
+    }
+}
+
+impl<'a> From<&'a str> for CommandError {
+    fn from(message: &'a str) -> Self {
+        CommandError {
+            message: message.to_string(),
+        }
+    }
 }
 
 #[tauri::command]
-pub fn get_tasks(state: State<AppState>) -> Result<Vec<Task>, String> {
-    let conn = state.db.lock().unwrap();
-    let mut stmt = conn
-        .prepare("SELECT id, title, done, est_minutes, notes, project, tags FROM tasks")
-        .map_err(|e| e.to_string())?;
+pub fn get_tasks(db: State<Database>) -> Result<Vec<Task>, CommandError> {
+    let conn = db.0.lock().unwrap();
+    let mut stmt =
+        conn.prepare("SELECT id, title, done, est_minutes, notes, project, tags FROM tasks")?;
+    let task_iter = stmt.query_map(params![], |row| {
+        let tags_json: Option<String> = row.get(6)?;
+        let tags: Option<Vec<String>> = match tags_json {
+            Some(json) if !json.is_empty() => match serde_json::from_str(&json) {
+                Ok(tags) => Some(tags),
+                Err(_) => Some(vec![]),
+            },
+            _ => Some(vec![]),
+        };
 
-    let task_iter = stmt
-        .query_map([], |row| {
-            let tags_str: Option<String> = row.get(6)?;
-            let tags: Option<Vec<String>> = match tags_str {
-                Some(s) => serde_json::from_str(&s).unwrap_or(None),
-                None => None,
-            };
-
-            Ok(Task {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                done: row.get::<_, i32>(2)? != 0,
-                est_minutes: row.get(3)?,
-                notes: row.get(4)?,
-                project: row.get(5)?,
-                tags,
-            })
+        Ok(Task {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            done: row.get(2)?,
+            est_minutes: row.get(3)?,
+            notes: row.get(4)?,
+            project: row.get(5)?,
+            tags,
         })
-        .map_err(|e| e.to_string())?;
+    })?;
 
     let mut tasks = Vec::new();
     for task in task_iter {
-        tasks.push(task.map_err(|e| e.to_string())?);
+        tasks.push(task?);
     }
+
     Ok(tasks)
 }
 
 #[tauri::command]
-pub fn add_task(task: Task, state: State<AppState>) -> Result<(), String> {
-    let tags_str = task
-        .tags
-        .map(|tags| serde_json::to_string(&tags).unwrap_or_else(|_| "[]".to_string()));
-
-    let conn = state.db.lock().unwrap();
+pub fn add_task(task: Task, db: State<Database>) -> Result<(), CommandError> {
+    let tags_json = serde_json::to_string(&task.tags)?;
+    let conn = db.0.lock().unwrap();
     conn.execute(
         "INSERT INTO tasks (id, title, done, est_minutes, notes, project, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
@@ -60,20 +95,16 @@ pub fn add_task(task: Task, state: State<AppState>) -> Result<(), String> {
             task.est_minutes,
             task.notes,
             task.project,
-            tags_str,
+            tags_json
         ],
-    )
-    .map_err(|e| e.to_string())?;
+    )?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn update_task(task: Task, state: State<AppState>) -> Result<(), String> {
-    let tags_str = task
-        .tags
-        .map(|tags| serde_json::to_string(&tags).unwrap_or_else(|_| "[]".to_string()));
-
-    let conn = state.db.lock().unwrap();
+pub fn update_task(task: Task, db: State<Database>) -> Result<(), CommandError> {
+    let tags_json = serde_json::to_string(&task.tags)?;
+    let conn = db.0.lock().unwrap();
     conn.execute(
         "UPDATE tasks SET title = ?1, done = ?2, est_minutes = ?3, notes = ?4, project = ?5, tags = ?6 WHERE id = ?7",
         params![
@@ -82,44 +113,47 @@ pub fn update_task(task: Task, state: State<AppState>) -> Result<(), String> {
             task.est_minutes,
             task.notes,
             task.project,
-            tags_str,
-            task.id,
+            tags_json,
+            task.id
         ],
-    )
-    .map_err(|e| e.to_string())?;
+    )?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn delete_task(id: String, state: State<AppState>) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
-    conn.execute("DELETE FROM tasks WHERE id = ?1", params![id])
-        .map_err(|e| e.to_string())?;
+pub fn delete_task(id: String, db: State<Database>) -> Result<(), CommandError> {
+    let mut conn = db.0.lock().unwrap();
+    let tx = conn.transaction()?;
+
+    tx.execute("DELETE FROM day_blocks WHERE task_id = ?1", params![&id])?;
+    tx.execute("DELETE FROM tasks WHERE id = ?1", params![&id])?;
+
+    tx.commit()?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn get_blocks_for_date(date: String, state: State<AppState>) -> Result<Vec<DayBlock>, String> {
-    let conn = state.db.lock().unwrap();
-    let mut stmt = conn
-        .prepare("SELECT id, task_id, date, start_slot, end_slot FROM day_blocks WHERE date = ?1")
-        .map_err(|e| e.to_string())?;
-
-    let block_iter = stmt
-        .query_map(params![date], |row| {
-            Ok(DayBlock {
-                id: row.get(0)?,
-                task_id: row.get(1)?,
-                date: row.get(2)?,
-                start_slot: row.get(3)?,
-                end_slot: row.get(4)?,
-            })
+pub fn get_blocks_for_date(
+    date: String,
+    db: State<Database>,
+) -> Result<Vec<DayBlock>, CommandError> {
+    let conn = db.0.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT id, task_id, date, start_slot, end_slot FROM day_blocks WHERE date = ?1",
+    )?;
+    let block_iter = stmt.query_map(params![date], |row| {
+        Ok(DayBlock {
+            id: row.get(0)?,
+            task_id: row.get(1)?,
+            date: row.get(2)?,
+            start_slot: row.get(3)?,
+            end_slot: row.get(4)?,
         })
-        .map_err(|e| e.to_string())?;
+    })?;
 
     let mut blocks = Vec::new();
     for block in block_iter {
-        blocks.push(block.map_err(|e| e.to_string())?);
+        blocks.push(block?);
     }
     Ok(blocks)
 }
@@ -128,101 +162,95 @@ pub fn get_blocks_for_date(date: String, state: State<AppState>) -> Result<Vec<D
 pub fn save_blocks_for_date(
     date: String,
     blocks: Vec<DayBlock>,
-    state: State<AppState>,
-) -> Result<(), String> {
-    let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    db: State<Database>,
+) -> Result<(), CommandError> {
+    let mut conn = db.0.lock().unwrap();
+    let tx = conn.transaction()?;
 
-    tx.execute("DELETE FROM day_blocks WHERE date = ?1", params![date])
-        .map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM day_blocks WHERE date = ?1", params![date])?;
 
     for block in blocks {
         tx.execute(
             "INSERT INTO day_blocks (id, task_id, date, start_slot, end_slot) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![block.id, block.task_id, block.date, block.start_slot, block.end_slot],
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
     }
 
-    tx.commit().map_err(|e| e.to_string())?;
+    tx.commit()?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn get_settings(
-    state: State<AppState>,
-) -> Result<std::collections::HashMap<String, String>, String> {
-    let conn = state.db.lock().unwrap();
-    let mut stmt = conn
-        .prepare("SELECT key, value FROM settings")
-        .map_err(|e| e.to_string())?;
-
+    db: State<Database>,
+) -> Result<std::collections::HashMap<String, String>, CommandError> {
+    let conn = db.0.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
     let mut settings = std::collections::HashMap::new();
-    let rows = stmt
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-        .map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
 
     for row in rows {
-        let (key, value): (String, String) = row.map_err(|e| e.to_string())?;
+        let (key, value): (String, String) = row?;
         settings.insert(key, value);
     }
-
     Ok(settings)
 }
 
 #[tauri::command]
-pub fn update_setting(key: String, value: String, state: State<AppState>) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
+pub fn update_setting(key: String, value: String, db: State<Database>) -> Result<(), CommandError> {
+    let conn = db.0.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
         params![key, value],
-    )
-    .map_err(|e| e.to_string())?;
+    )?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn llm_enrich(
-    tasks: Vec<ParsedTask>,
-    sys_prompt: String,
-    state: State<'_, AppState>,
-) -> Result<EnrichResponse, String> {
-    let api_key = {
-        let conn = state.db.lock().unwrap();
-        let api_key_result: Result<Option<String>, rusqlite::Error> = conn
-            .query_row(
-                "SELECT value FROM settings WHERE key = 'apiKey'",
-                [],
-                |row| row.get(0),
-            )
-            .optional();
+pub fn get_platform() -> String {
+    std::env::consts::OS.to_string()
+}
 
-        api_key_result
-            .map_err(|e| e.to_string())?
+#[derive(Serialize)]
+struct EnrichRequest {
+    model: String,
+    messages: Vec<Message>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Message {
+    role: String,
+    content: String,
+}
+
+#[tauri::command]
+pub async fn llm_enrich(
+    task_title: String,
+    db: State<'_, Database>,
+) -> Result<EnrichResponse, CommandError> {
+    let api_key: Option<String> = {
+        let conn = db.0.lock().unwrap();
+        conn.query_row("SELECT value FROM settings WHERE key = 'apiKey'", [], |row| {
+            row.get(0)
+        })
+        .optional()?
     };
 
-    let api_key = api_key.ok_or_else(|| "OpenAI API key not found in settings".to_string())?;
+    let api_key = api_key.ok_or("OpenAI API key not found in settings")?;
 
     let client = reqwest::Client::new();
-
-    let user_content =
-        serde_json::to_string(&tasks).map_err(|e| format!("Serialization error: {}", e))?;
-
-    let request = OpenAIRequest {
-        model: "gpt-4o-mini",
+    let request = EnrichRequest {
+        model: "gpt-4-turbo-preview".to_string(),
         messages: vec![
-            OpenAIMessage {
-                role: "system",
-                content: sys_prompt,
+            Message {
+                role: "system".to_string(),
+                content: "You are a helpful assistant. The user will provide a task title, and you will enrich it by generating a short description (1-2 sentences) and suggesting 3-5 relevant tags. Format the output as a JSON object with 'notes' and 'tags' keys.".to_string(),
             },
-            OpenAIMessage {
-                role: "user",
-                content: user_content,
+            Message {
+                role: "user".to_string(),
+                content: task_title,
             },
         ],
-        response_format: ResponseFormat {
-            response_type: "json_object",
-        },
     };
 
     let response = client
@@ -230,70 +258,57 @@ pub async fn llm_enrich(
         .bearer_auth(api_key)
         .json(&request)
         .send()
-        .await
-        .map_err(|e| format!("Request error: {}", e))?;
+        .await?;
 
     if response.status().is_success() {
-        let text = response
-            .text()
-            .await
-            .map_err(|e| format!("Failed to read response text: {}", e))?;
-        let openai_response: OpenAIResponse =
-            serde_json::from_str(&text).map_err(|e| format!("JSON parsing error: {}", e))?;
-        let enriched_content = openai_response
-            .choices
-            .get(0)
-            .ok_or("No choices in response")?
-            .message
-            .content
-            .clone();
-        serde_json::from_str(&enriched_content)
-            .map_err(|e| format!("Final content parsing error: {}", e))
+        let text = response.text().await?;
+        let json_response: serde_json::Value = serde_json::from_str(&text)?;
+        let enriched_content = json_response["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or("No content in response")?;
+        Ok(serde_json::from_str(enriched_content)?)
     } else {
         let status = response.status();
-        let text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Could not read error body".to_string());
-        Err(format!("API Error: {} - {}", status, text))
+        let text = response.text().await.unwrap_or_default();
+        Err(format!("API Error: {} - {}", status, text).into())
     }
+}
+
+#[derive(Serialize)]
+struct PlanRequest {
+    model: String,
+    messages: Vec<Message>,
 }
 
 #[tauri::command]
 pub async fn llm_plan(
-    messages: Vec<OpenAIMessage<'_>>,
-    sys_prompt: String,
-    state: State<'_, AppState>,
-) -> Result<PlanWithAIResponse, String> {
-    let api_key = {
-        let conn = state.db.lock().unwrap();
-        let api_key_result: Result<Option<String>, rusqlite::Error> = conn
-            .query_row(
-                "SELECT value FROM settings WHERE key = 'apiKey'",
-                [],
-                |row| row.get(0),
-            )
-            .optional();
-
-        api_key_result.map_err(|e| e.to_string())?
+    tasks: Vec<Task>,
+    db: State<'_, Database>,
+) -> Result<PlanWithAIResponse, CommandError> {
+    let api_key: Option<String> = {
+        let conn = db.0.lock().unwrap();
+        conn.query_row("SELECT value FROM settings WHERE key = 'apiKey'", [], |row| {
+            row.get(0)
+        })
+        .optional()?
     };
-
-    let api_key = api_key.ok_or_else(|| "OpenAI API key not found in settings".to_string())?;
+    let api_key = api_key.ok_or("OpenAI API key not found in settings")?;
 
     let client = reqwest::Client::new();
+    let tasks_json = serde_json::to_string(&tasks)?;
 
-    let mut all_messages = vec![OpenAIMessage {
-        role: "system",
-        content: sys_prompt,
-    }];
-    all_messages.extend(messages);
-
-    let request = OpenAIRequest {
-        model: "gpt-4o-mini",
-        messages: all_messages,
-        response_format: ResponseFormat {
-            response_type: "json_object",
-        },
+    let request = PlanRequest {
+        model: "gpt-4-turbo-preview".to_string(),
+        messages: vec![
+            Message {
+                role: "system".to_string(),
+                content: "You are a helpful assistant. The user will provide a list of tasks. Your job is to suggest a plausible schedule by assigning a 'start_slot' and 'end_slot' for each task. Today is a normal workday. The user wants to start work at 9am. Slots are 30-minute intervals, so 9am is slot 18, 9:30am is 19, etc. The output should be a JSON object with a 'blocks' key, containing a list of objects, each with 'task_id', 'start_slot', and 'end_slot'.".to_string(),
+            },
+            Message {
+                role: "user".to_string(),
+                content: tasks_json,
+            },
+        ],
     };
 
     let response = client
@@ -301,77 +316,58 @@ pub async fn llm_plan(
         .bearer_auth(api_key)
         .json(&request)
         .send()
-        .await
-        .map_err(|e| format!("Request error: {}", e))?;
+        .await?;
 
     if response.status().is_success() {
-        let text = response
-            .text()
-            .await
-            .map_err(|e| format!("Failed to read response text: {}", e))?;
-        let openai_response: OpenAIResponse =
-            serde_json::from_str(&text).map_err(|e| format!("JSON parsing error: {}", e))?;
-        let content = openai_response
-            .choices
-            .get(0)
-            .ok_or("No choices in response")?
-            .message
-            .content
-            .clone();
-        serde_json::from_str(&content).map_err(|e| format!("Final content parsing error: {}", e))
+        let text = response.text().await?;
+        let json_response: serde_json::Value = serde_json::from_str(&text)?;
+        let content = json_response["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or("No content in response")?;
+        Ok(serde_json::from_str(content)?)
     } else {
         let status = response.status();
-        let text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Could not read error body".to_string());
-        Err(format!("API Error: {} - {}", status, text))
+        let text = response.text().await.unwrap_or_default();
+        Err(format!("API Error: {} - {}", status, text).into())
     }
+}
+
+#[derive(Serialize)]
+struct RefineRequest {
+    model: String,
+    messages: Vec<Message>,
 }
 
 #[tauri::command]
 pub async fn llm_refine(
-    existing: Vec<ParsedTask>,
-    notes: Option<String>,
-    sys_prompt: String,
-    state: State<'_, AppState>,
-) -> Result<RefineResponse, String> {
+    existing: String,
+    instruction: String,
+    db: State<'_, Database>,
+) -> Result<RefineResponse, CommandError> {
     let api_key: Option<String> = {
-        let conn = state.db.lock().unwrap();
-        conn.query_row(
-            "SELECT value FROM settings WHERE key = 'apiKey'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(|e| e.to_string())?
+        let conn = db.0.lock().unwrap();
+        conn.query_row("SELECT value FROM settings WHERE key = 'apiKey'", [], |row| {
+            row.get(0)
+        })
+        .optional()?
     };
 
-    let api_key = api_key.ok_or_else(|| "OpenAI API key not found in settings".to_string())?;
+    let api_key = api_key.ok_or("OpenAI API key not found in settings")?;
 
     let client = reqwest::Client::new();
 
-    let mut user_content =
-        serde_json::to_string(&existing).map_err(|e| format!("Serialization error: {}", e))?;
-    if let Some(note_str) = notes {
-        user_content = format!("{}\n\nNotes: {}", user_content, note_str);
-    }
-
-    let request = OpenAIRequest {
-        model: "gpt-4o-mini",
+    let request = RefineRequest {
+        model: "gpt-4-turbo-preview".to_string(),
         messages: vec![
-            OpenAIMessage {
-                role: "system",
-                content: sys_prompt,
+            Message {
+                role: "system".to_string(),
+                content: "You are a helpful assistant. The user will provide an existing schedule and an instruction. You will refine the schedule based on the instruction. The output should be a JSON object with a 'blocks' key, containing the new list of blocks.".to_string(),
             },
-            OpenAIMessage {
-                role: "user",
-                content: user_content,
+            Message {
+                role: "user".to_string(),
+                content: format!("Existing schedule: {}. Instruction: {}", existing, instruction),
             },
         ],
-        response_format: ResponseFormat {
-            response_type: "json_object",
-        },
     };
 
     let response = client
@@ -379,30 +375,18 @@ pub async fn llm_refine(
         .bearer_auth(api_key)
         .json(&request)
         .send()
-        .await
-        .map_err(|e| format!("Request error: {}", e))?;
+        .await?;
 
     if response.status().is_success() {
-        let text = response
-            .text()
-            .await
-            .map_err(|e| format!("Failed to read response text: {}", e))?;
-        let openai_response: OpenAIResponse =
-            serde_json::from_str(&text).map_err(|e| format!("JSON parsing error: {}", e))?;
-        let content = openai_response
-            .choices
-            .get(0)
-            .ok_or("No choices in response")?
-            .message
-            .content
-            .clone();
-        serde_json::from_str(&content).map_err(|e| format!("Final content parsing error: {}", e))
+        let text = response.text().await?;
+        let json_response: serde_json::Value = serde_json::from_str(&text)?;
+        let content = json_response["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or("No choices in response")?;
+        Ok(serde_json::from_str(content)?)
     } else {
         let status = response.status();
-        let text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Could not read error body".to_string());
-        Err(format!("API Error: {} - {}", status, text))
+        let text = response.text().await.unwrap_or_default();
+        Err(format!("API Error: {} - {}", status, text).into())
     }
 }

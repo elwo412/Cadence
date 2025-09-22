@@ -13,6 +13,7 @@ export const BlockCard = ({
   isSelected,
   onClick,
   onContextMenu,
+  onDoubleClick,
   slotHeight,
 }: {
   block: DayBlock;
@@ -22,6 +23,7 @@ export const BlockCard = ({
   isSelected: boolean;
   onClick: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  onDoubleClick?: (e: React.MouseEvent) => void;
   slotHeight: number;
 }) => {
   const dayStartMin = parseHHMM(DAY_START);
@@ -58,7 +60,8 @@ export const BlockCard = ({
     <div
       ref={dndNodeRef}
       onContextMenu={onContextMenu}
-      className="absolute left-0 right-0 group"
+      onDoubleClick={onDoubleClick}
+      className="absolute left-0 right-0 group px-2 py-0.5"
       style={{
         top: ((startMin - dayStartMin) / SLOT_MIN) * slotHeight,
         height: (lengthMin / SLOT_MIN) * slotHeight,
@@ -68,15 +71,13 @@ export const BlockCard = ({
         onClick={onClick}
         {...dndListeners}
         {...DndAttributes}
-        className={`relative flex flex-col justify-between rounded-lg bg-[#1D1E24] px-2 py-1 h-full cursor-grab border ${
+        className={`glass relative flex flex-col justify-between rounded-lg px-2 py-1 h-full cursor-grab ${
           isOverlapping
             ? "border-red-500/50"
             : isSelected
             ? "border-blue-500/80"
-            : "border-transparent"
-        } transition-colors duration-200 ${
-          isSelected ? "shadow-lg shadow-blue-500/20" : ""
-        }`}
+            : ""
+        } transition-colors duration-200`}
       >
         <div
           ref={topResizeRef}

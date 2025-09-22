@@ -3,15 +3,14 @@ import { BrainCircuit, Stars, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../lib/utils";
 import Modal from "./Modal";
-import { ParsedTask } from "../types/composer";
+import { ParsedTask } from "../lib/parsing";
 import QuickAddTab from "./TaskComposer/QuickAddTab";
 import PlanWithAITab from "./TaskComposer/PlanWithAITab";
 import RefineTab from "./TaskComposer/RefineTab";
 import DraftBasket from "./TaskComposer/DraftBasket";
 import { llmEnrich } from "../lib/llm";
-import { Task } from "../../types";
-import { RefineSuggestion } from "../../types/composer";
-import { useTasks } from "../hooks/useTasks";
+import { Task } from "../types";
+import { RefineSuggestion } from "../types/composer";
 
 type TaskComposerProps = {
   open: boolean;
@@ -70,15 +69,15 @@ export default function TaskComposer({
       switch (sug.kind) {
         case "update":
           if (sug.updates) {
-            sug.target_ids.forEach((id) =>
+            sug.targetIds.forEach((id: string) =>
               onTaskUpdate(id, sug.updates as Partial<Task>)
             );
           }
           break;
         case "split":
           if (sug.split) {
-            sug.target_ids.forEach((id) => onTaskDelete(id));
-            sug.split.forEach((task) => onTaskAdd(task));
+            sug.targetIds.forEach((id: string) => onTaskDelete(id));
+            sug.split.forEach((task: ParsedTask) => onTaskAdd(task));
           }
           break;
         case "merge":

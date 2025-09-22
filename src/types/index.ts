@@ -1,3 +1,5 @@
+export type Priority = 1 | 2 | 3;
+
 export interface Task {
   id: string;
   title: string;
@@ -6,6 +8,7 @@ export interface Task {
   notes: string | null;
   project: string | null;
   tags: string[] | null;
+  priority?: Priority;
 }
 export interface Session {
   at: string;

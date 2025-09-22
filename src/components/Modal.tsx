@@ -1,4 +1,5 @@
 import React from "react";
+import { cn } from "../lib/utils";
 
 export default function Modal({
   open,
@@ -6,18 +7,25 @@ export default function Modal({
   title,
   children,
   footer,
+  className,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  className?: string;
 }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-[760px] max-w-[92vw] rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 shadow-[0_10px_60px_rgba(0,0,0,0.5)]">
+      <div
+        className={cn(
+          "glass relative w-[760px] max-w-[92vw] rounded-2xl p-6",
+          className
+        )}
+      >
         <div className="flex items-center justify-between mb-3">
           <div className="text-lg font-semibold text-white">{title}</div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white">

@@ -7,7 +7,11 @@ import {
   DragOverEvent,
   DragStartEvent,
 } from "@dnd-kit/core";
-import { DAY_END, DAY_START, SLOT_MIN } from "../lib/time";
+import {
+  DAY_END,
+  DAY_START,
+  SLOT_MIN,
+} from "../lib/time";
 import { parseHHMM } from "../lib/time";
 import { uuid } from "../lib/utils";
 
@@ -17,7 +21,8 @@ export const useCalendarDnD = (
   gridRef: React.RefObject<HTMLDivElement>,
   tasks: Task[],
   _blocks: DayBlock[],
-  setBlocks: React.Dispatch<React.SetStateAction<DayBlock[]>>
+  setBlocks: React.Dispatch<React.SetStateAction<DayBlock[]>>,
+  slotHeight: number,
 ) => {
   const [newBlock, setNewBlock] = useState<DayBlock | null>(null);
   const [previewBlock, setPreviewBlock] = useState<DayBlock | null>(null);
@@ -41,7 +46,7 @@ export const useCalendarDnD = (
       el: gridRef.current,
       dayStartMin: parseHHMM(DAY_START),
       dayEndMin: parseHHMM(DAY_END),
-      totalSlots: (parseHHMM(DAY_END) - parseHHMM(DAY_START)) / SLOT_MIN,
+      slotHeight,
     };
 
     const startY = (event.activatorEvent as PointerEvent).clientY;

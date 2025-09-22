@@ -4,6 +4,7 @@ import { Checkbox } from "../Checkbox";
 import { BrainCircuit } from "lucide-react";
 import { llmRefine } from "../../lib/llm";
 import { RefineSuggestion } from "../../types/composer";
+import { ParsedTask } from "../../lib/parsing";
 
 type RefineTabProps = {
   tasks: Task[];
@@ -25,7 +26,13 @@ export default function RefineTab({ tasks, setSuggestions }: RefineTabProps) {
     setPending(true);
     const selectedTasks = tasks.filter((t) => selectedTaskIds.includes(t.id));
     try {
-      const response = await llmRefine(selectedTasks);
+      const parsedTasks: ParsedTask[] = selectedTasks.map(t => ({
+        title: t.title,
+        est: t.est_minutes,
+        tags: t.tags || undefined,
+        priority: t.priority,
+      }));
+      const response = await llmRefine(parsedTasks);
       setSuggestions(response.suggestions);
     } catch (e) {
       console.error("Refinement failed:", e);

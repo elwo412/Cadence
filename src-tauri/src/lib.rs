@@ -1,65 +1,37 @@
-use rusqlite::Connection;
-use std::fs;
-use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
-mod commands;
-mod models;
-
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+#[cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
+pub mod commands;
+pub mod db;
+pub mod models;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub fn run() -> tauri::Result<()> {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let data_dir = app.path().app_data_dir().expect("failed to get app data dir");
-            if !data_dir.exists() {
-                fs::create_dir_all(&data_dir).expect("failed to create app data dir");
+            let handle = app.handle();
+            let db = db::init_db(&handle).expect("failed to initialize database");
+            app.manage(db);
+
+            if app.get_webview_window("main").is_none() {
+                let url = if cfg!(debug_assertions) {
+                    WebviewUrl::default()
+                } else {
+                    WebviewUrl::App("index.html".into())
+                };
+
+                WebviewWindowBuilder::new(app, "main", url)
+                    .title("Cadence")
+                    .inner_size(1200.0, 800.0)
+                    .transparent(false)
+                    .build()?;
             }
-            let db_path = data_dir.join("cadence.db");
-
-            let conn = Connection::open(&db_path).expect("failed to open database");
-
-            conn.execute_batch(
-                "
-                CREATE TABLE IF NOT EXISTS tasks (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    done INTEGER NOT NULL DEFAULT 0,
-                    est_minutes INTEGER NOT NULL,
-                    notes TEXT,
-                    project TEXT,
-                    tags TEXT
-                );
-                CREATE TABLE IF NOT EXISTS day_blocks (
-                    id TEXT PRIMARY KEY,
-                    task_id TEXT,
-                    date TEXT NOT NULL,
-                    start_slot INTEGER NOT NULL,
-                    end_slot INTEGER NOT NULL,
-                    FOREIGN KEY (task_id) REFERENCES tasks (id)
-                );
-                CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                );
-                ",
-            )
-            .expect("failed to create tables");
-
-            app.manage(commands::AppState {
-                db: Mutex::new(conn),
-            });
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
             commands::get_tasks,
             commands::add_task,
             commands::update_task,
@@ -68,10 +40,11 @@ pub fn run() {
             commands::save_blocks_for_date,
             commands::get_settings,
             commands::update_setting,
+            commands::get_platform,
             commands::llm_enrich,
             commands::llm_plan,
             commands::llm_refine
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .run(tauri::generate_context!())?;
+    Ok(())
 }

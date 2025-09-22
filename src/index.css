@@ -1,5 +1,55 @@
 @import "tailwindcss";
 
+/* 3.1 Tokens with sane defaults */
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-stroke: rgba(255, 255, 255, 0.1);
+  --glass-blur: 24px;
+  --glass-shadow: 0 0 110px rgba(255, 110, 110, 0.08);
+}
+
+/* 3.2 Per-OS tweaks: Linux often looks “more transparent” → bump tint/blur */
+html[data-os="linux"] {
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-blur: 18px;
+}
+
+/* Windows Acrylic/Mica adds its own haze → slightly lighter */
+html[data-os="windows"] {
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-blur: 14px;
+}
+
+/* macOS is close to the default; tweak if you see deltas */
+html[data-os="darwin"] {
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-blur: 16px;
+}
+
+/* 3.3 Fallback if backdrop-filter is unsupported */
+@supports not (backdrop-filter: blur(1px)) {
+  :root {
+    --glass-bg: rgba(20, 22, 28, 0.85); /* opaque-ish fallback */
+    --glass-blur: 0px;
+  }
+}
+
+/* 3.4 Make the blur var animatable (nice for a settings slider) */
+@property --glass-blur {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 16px;
+}
+
+/* 3.5 The utility: one class to rule them all */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-stroke);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur)); /* Safari/WebKit */
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
