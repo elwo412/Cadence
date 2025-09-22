@@ -24,7 +24,7 @@ import Modal from "../components/Modal";
 import TodosView from "../components/tabs/TodosView";
 import TodayView from "../components/tabs/TodayView";
 import NotesView from "../components/tabs/NotesView";
-import { minsToHHMM, SLOT_MIN } from "../lib/time";
+import { minsToHHMM, SLOT_MIN, SLOT_HEIGHT as BASE_SLOT_HEIGHT } from "../lib/time";
 import TaskRow from "../components/TaskRow";
 import { AnimatePresence, motion } from "framer-motion";
 import { CustomPointerSensor } from "../lib/sensors";
@@ -38,13 +38,17 @@ import TaskComposer from "../components/TaskComposer";
 import { invoke } from "@tauri-apps/api/core";
 import { ParsedTask } from "../types/composer";
 import { Toaster } from "react-hot-toast";
+import { useHistoryState } from "../hooks/useHistoryState";
 
 export type RightPane = "todos" | "today" | "notes";
 
 export default function Planner() {
   const gridRef = useRef<HTMLDivElement>(null);
   const { tasks, addTask, updateTask, deleteTask } = useTasks();
-  const [blocks, setBlocks] = useState<DayBlock[]>([]);
+  const [blocks, setBlocks, undoBlocks, redoBlocks, canUndo, canRedo] = useHistoryState<DayBlock[]>([]);
+  const [zoom, setZoom] = useState(1.6);
+  const slotHeight = (BASE_SLOT_HEIGHT / 6) * zoom;
+
   const [activeFocus, setActiveFocus] = useState<string[]>([]);
   const [log, setLog] = useState<Session[]>([]);
 
@@ -126,7 +130,7 @@ export default function Planner() {
     handleDragMove,
     handleDragEnd,
     handleDragOver,
-  } = useCalendarDnD(gridRef, tasks, blocks, setBlocks);
+  } = useCalendarDnD(gridRef, tasks, blocks, setBlocks, slotHeight);
 
   const handleDndDragStart = (event: DragStartEvent) => {
     handleDragStart(event);
@@ -691,6 +695,13 @@ export default function Planner() {
                   selectedBlockIds={selectedBlockIds}
                   setSelectedBlockIds={setSelectedBlockIds}
                   onContextMenu={setContextMenu}
+                  onDoubleClickBlock={(taskId) => {
+                    setActiveFocus((f) => [...f, taskId]);
+                    setRightPane("today");
+                  }}
+                  zoom={zoom}
+                  setZoom={setZoom}
+                  slotHeight={slotHeight}
                 />
               )}
               {rightPane === "notes" && (

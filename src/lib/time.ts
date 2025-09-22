@@ -1,5 +1,5 @@
 // config
-export const SLOT_MIN = 30; // snap size
+export const SLOT_MIN = 5; // snap size
 export const NUDGE_MIN = 5; // keyboard/Alt-drag nudge
 export const SLOT_HEIGHT = 28; // px per 30m
 export const DAY_START = "00:00";
