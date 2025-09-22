@@ -1,6 +1,3 @@
-use rusqlite::Connection;
-use std::fs;
-use std::sync::Mutex;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg_attr(
