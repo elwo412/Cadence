@@ -58,7 +58,7 @@ export const BlockCard = ({
     <div
       ref={dndNodeRef}
       onContextMenu={onContextMenu}
-      className="absolute left-0 right-0 group"
+      className="absolute left-0 right-0 group px-2 py-0.5"
       style={{
         top: ((startMin - dayStartMin) / SLOT_MIN) * slotHeight,
         height: (lengthMin / SLOT_MIN) * slotHeight,
@@ -68,7 +68,7 @@ export const BlockCard = ({
         onClick={onClick}
         {...dndListeners}
         {...DndAttributes}
-        className={`relative flex flex-col justify-between rounded-lg bg-[#1D1E24] px-2 py-1 h-full cursor-grab border ${
+        className={`relative flex flex-col justify-between rounded-lg bg-slate-800 px-2 py-1 h-full cursor-grab border ${
           isOverlapping
             ? "border-red-500/50"
             : isSelected
