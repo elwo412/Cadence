@@ -29,7 +29,6 @@ function DroppableSlot({ absMin }: { absMin: number }) {
 }
 
 export function MiniDayRail() {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [isDraggingTask, setIsDraggingTask] = useState(false);
   const tasks = usePlanner(s => s.tasks);
   const blocks = usePlanner(s => s.blocks);
@@ -72,16 +71,14 @@ export function MiniDayRail() {
   return (
     <motion.aside
       className="relative h-full bg-[var(--card)] border-l border-t border-b border-[var(--card-border)] rounded-3xl overflow-hidden"
-      initial={{ width: 72 }}
+      initial={{ width: 240 }}
       animate={{
-        width: isExpanded || isDraggingTask ? 240 : 72,
+        width: 240,
         boxShadow: isHoveringMiniDayRail
           ? "0 0 20px 0 rgba(16, 185, 129, 0.5)"
           : "0 0 0 0 rgba(0,0,0,0)",
       }}
       transition={{ duration: 0.2 }}
-      onHoverStart={() => setIsExpanded(true)}
-      onHoverEnd={() => setIsExpanded(false)}
     >
       <div className="absolute inset-0 overflow-auto thin-scroll" ref={scrollRef}>
         <div className="relative" style={{ height: totalMinutes * SLOT_PX }}>
@@ -107,19 +104,17 @@ export function MiniDayRail() {
                 />
               );
             })}
-            {isExpanded && (
-              <div className="absolute inset-0">
-                {Array.from({ length: 24 }).map((_, hour) => (
-                  <div
-                    key={hour}
-                    className="absolute right-2 -translate-y-1/2 text-[10px] text-zinc-500"
-                    style={{ top: (hour * 60 - dayStartMin) * SLOT_PX }}
-                  >
-                    {hour > 0 && `${String(hour).padStart(2, "0")}:00`}
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="absolute inset-0">
+              {Array.from({ length: 24 }).map((_, hour) => (
+                <div
+                  key={hour}
+                  className="absolute right-2 -translate-y-1/2 text-[10px] text-zinc-500"
+                  style={{ top: (hour * 60 - dayStartMin) * SLOT_PX }}
+                >
+                  {hour > 0 && `${String(hour).padStart(2, "0")}:00`}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Layer 2: Now-line (visual) */}
