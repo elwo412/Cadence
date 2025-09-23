@@ -22,7 +22,7 @@ type Actions = {
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   setBlocks: (blocks: Block[] | ((prev: Block[]) => Block[])) => void;
-  addBlock: (block: Omit<Block, 'id'>) => void;
+  addBlock: (block: Omit<Block, 'id'>, date: string) => void;
   addAtomicBlock: (block: Omit<Block, 'id' | 'kind'>) => void;
   addWorkItem: (blockId: string, item: WorkItem) => void;
   saveBlocks: (date: string) => void;
@@ -50,9 +50,16 @@ const usePlanner = create<State & Actions>()(
         set({ tasks });
       },
       fetchBlocks: async (date) => {
-        // This will need updating when backend types change
-        const blocks = await invoke<Block[]>("get_blocks_for_date", { date });
-        set({ blocks });
+        const backendBlocks = await invoke<any[]>("get_blocks_for_date", { date });
+        const frontendBlocks: Block[] = backendBlocks.map(b => ({
+          id: b.id,
+          taskId: b.task_id,
+          dateISO: b.date,
+          startMin: b.start_slot * 15,
+          lengthMin: (b.end_slot - b.start_slot) * 15,
+          kind: 'atomic', 
+        }));
+        set({ blocks: frontendBlocks });
       },
       addTask: async (task) => {
         const newTask: Task = {
@@ -91,10 +98,10 @@ const usePlanner = create<State & Actions>()(
           set({ blocks });
         }
       },
-      addBlock: (block) => {
+      addBlock: (block, date) => {
         const newBlock = { ...block, id: uuidv4() };
         set((state) => ({ blocks: [...state.blocks, newBlock] }));
-        get().saveBlocks(todayISO());
+        get().saveBlocks(date);
       },
       addAtomicBlock: (block) => {
         const newBlock: Block = {
@@ -118,8 +125,22 @@ const usePlanner = create<State & Actions>()(
         }));
       },
       saveBlocks: (date) => {
-        const blocks = get().blocks;
-        invoke("save_blocks_for_date", { date, blocks });
+        console.log("Saving blocks for date:", date);
+        if (!date) {
+          console.error("`saveBlocks` called without a date!");
+          return;
+        }
+        const blocksToSave = get().blocks
+          .filter(b => b.dateISO === date)
+          .map(b => ({
+            id: b.id,
+            task_id: b.taskId,
+            date: b.dateISO,
+            start_slot: Math.floor(b.startMin / 15),
+            end_slot: Math.floor((b.startMin + b.lengthMin) / 15),
+          }));
+
+        invoke("save_blocks_for_date", { date: date, blocks: blocksToSave });
       },
       toggleTask: (id: string) => {
         const task = get().tasks.find((t) => t.id === id);

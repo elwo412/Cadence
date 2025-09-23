@@ -117,7 +117,7 @@ export default function AppShell() {
     setActiveDragTask(null);
     if (previewBlock && isOverRail) {
       const { id, ...newBlock } = previewBlock;
-      addBlock(newBlock);
+      addBlock(newBlock, todayISO());
     }
     setPreviewBlock(null);
     setIsHoveringMiniDayRail(false);
