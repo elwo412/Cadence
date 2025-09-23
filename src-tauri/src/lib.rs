@@ -33,6 +33,7 @@ pub fn run() -> tauri::Result<()> {
             commands::delete_task,
             commands::get_blocks_for_date,
             commands::save_blocks_for_date,
+            commands::purge_all_data,
             commands::get_settings,
             commands::update_setting,
             commands::llm_enrich,

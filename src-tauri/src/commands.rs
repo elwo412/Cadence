@@ -168,6 +168,18 @@ pub fn save_blocks_for_date(
 }
 
 #[tauri::command]
+pub fn purge_all_data(db: State<Database>) -> Result<(), CommandError> {
+    let conn = db.0.lock().unwrap();
+    conn.execute_batch("
+        PRAGMA foreign_keys = ON;
+        DROP TABLE IF EXISTS day_blocks;
+        DROP TABLE IF EXISTS tasks;
+    ")?;
+    Ok(())
+}
+
+
+#[tauri::command]
 pub fn get_settings(db: State<Database>) -> Result<std::collections::HashMap<String, String>, CommandError> {
     let conn = db.0.lock().unwrap();
     let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
