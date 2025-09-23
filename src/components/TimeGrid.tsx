@@ -59,8 +59,13 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
       (node: HTMLDivElement | null) => {
         gridDroppableRef(node);
         gridDraggableRef(node);
+        if (typeof ref === 'function') {
+          ref(node);
+        } else if (ref) {
+          ref.current = node;
+        }
       },
-      [gridDroppableRef, gridDraggableRef]
+      [gridDroppableRef, gridDraggableRef, ref]
     );
 
     const minutesToY = useCallback(
@@ -101,7 +106,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
     };
 
     return (
-      <div ref={ref} className="h-full overflow-auto">
+      <div className="h-full overflow-auto">
         <div className="relative p-1">
           <div className="grid grid-cols-[64px_1fr]">
             {/* time rail */}

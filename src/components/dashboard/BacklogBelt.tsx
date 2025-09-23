@@ -1,36 +1,28 @@
 import { useEffect, useState, useMemo } from "react";
 import { getBacklogCandidates } from "@/features/tasks/selectors";
 import { AnimatePresence, motion } from "framer-motion";
-import { useDraggable } from "@dnd-kit/core";
+import { useDraggable, useDndMonitor } from "@dnd-kit/core";
 import { Task } from "@/types";
 import { Checkbox } from "@/components/Checkbox";
-import { autoPlace, scheduleNextFreeSlot } from "@/features/calendar/schedule";
-import { todayISO } from "@/lib/utils";
+import { autoPlace } from "@/features/calendar/schedule";
 import { usePlanner } from "@/state/planner";
 
 function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: boolean, onToggleSelect: () => void; }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
-    id: task.id,
-    data: { type: 'TASK', task },
+    id: `task-${task.id}`,
+    data: { 
+      type: 'TASK',
+      taskId: task.id,
+      task: task,
+    },
   });
 
-  const handleClick = (e: React.MouseEvent) => {
-    // prevent dnd kit from firing on click
-    if (e.detail > 1) return; // double click
-    scheduleNextFreeSlot(task.id, todayISO());
-  }
-
   return (
-    <motion.div
+    <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: -10 }}
       className="flex-shrink-0 w-64 rounded-xl border border-white/10 bg-black/40 hover:bg-black/55 shadow-[0_6px_18px_rgba(0,0,0,0.35)] p-3 flex flex-col gap-2 relative cursor-grab"
-      onClick={handleClick}
     >
       <div className="flex items-start justify-between">
         <span className="text-zinc-200 text-sm">{task.title}</span>
@@ -42,7 +34,7 @@ function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: bo
           <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-white/10 rounded-md">{tag}</span>
         ))}
       </div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -107,6 +99,13 @@ export function BacklogBelt({ dateISO }: { dateISO: string }) {
   const [expanded, setExpanded] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [stack, setStack] = useState<Stack>('all');
+  const [isDragging, setIsDragging] = useState(false);
+
+  useDndMonitor({
+    onDragStart: () => setIsDragging(true),
+    onDragEnd: () => setIsDragging(false),
+    onDragCancel: () => setIsDragging(false),
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key.toLowerCase() === "b") setExpanded(v => !v); };
@@ -152,9 +151,9 @@ export function BacklogBelt({ dateISO }: { dateISO: string }) {
   return (
     <motion.div
       onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
+      onMouseLeave={() => !isDragging && setExpanded(false)}
       className="mt-2 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm flex flex-col flex-shrink-0"
-      animate={{ height: expanded ? 240 : 56 }}
+      animate={{ height: expanded || isDragging ? 240 : 56 }}
       transition={{ duration: 0.2, ease: "easeInOut" }}
       role="complementary" aria-label="Backlog belt"
     >

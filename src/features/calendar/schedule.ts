@@ -1,5 +1,6 @@
 import { usePlanner } from "@/state/planner";
 import { Block } from "@/types";
+import { Task } from "@/types";
 
 function workRemaining(block: Block, store: ReturnType<typeof usePlanner.getState>) {
     if (block.kind !== 'work' || !block.items) return 0;
@@ -48,8 +49,25 @@ export function scheduleNextFreeSlot(taskId: string, dateISO: string) {
     }
     store.addAtomicBlock({ taskId, dateISO, startMin: slot.start, lengthMin: est });
 }
-  
-  export function autoPlace(taskIds: string[], dateISO: string) {
+
+export function calculateNextBlock(taskId: string, dateISO:string, tasks: Task[], blocks: Block[]): Block | null {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return null;
+  const est = Math.max(5, Math.min(180, Math.round((task.est_minutes ?? 30) / 5) * 5));
+  const slot = findNextGapThatFits(blocks, dateISO, est);
+  if (!slot) return null;
+
+  return {
+    id: 'preview-block',
+    dateISO,
+    startMin: slot.start,
+    lengthMin: est,
+    kind: 'atomic',
+    taskId,
+  };
+}
+
+export function autoPlace(taskIds: string[], dateISO: string) {
     const store = usePlanner.getState();
     const tasks = store.tasks.filter(t => taskIds.includes(t.id)).sort((a, b) => b.est_minutes - a.est_minutes);
     

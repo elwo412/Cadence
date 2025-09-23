@@ -19,7 +19,10 @@ export const Checkbox = ({
       id={id}
       role="checkbox"
       aria-checked={checked}
-      onClick={() => onCheckedChange(!checked)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onCheckedChange(!checked);
+      }}
       className={cn(
         "h-5 w-5 rounded-md border flex items-center justify-center flex-shrink-0",
         checked

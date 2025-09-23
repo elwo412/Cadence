@@ -1,29 +1,39 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { TimeGrid } from "@/components/TimeGrid";
 import { usePlanner } from "@/state/planner";
 import { SLOT_MIN } from "@/lib/time";
 
-export function DayPeek() {
+export const DayPeek = forwardRef<HTMLDivElement>((_props, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const tasks = usePlanner(s => s.tasks);
   const blocks = usePlanner(s => s.blocks);
-  const dayPeekGridRef = useRef<HTMLDivElement>(null);
+  const internalRef = useRef<HTMLDivElement>(null);
   const zoom = 1.6; // Default zoom
   const slotHeight = 12 * zoom;
 
   useHotkeys("space", () => setIsOpen(true), { keydown: true });
   useHotkeys("space", () => setIsOpen(false), { keyup: true });
 
+  const setRefs = (node: HTMLDivElement | null) => {
+    // @ts-ignore
+    internalRef.current = node;
+    if (typeof ref === 'function') {
+      ref(node);
+    } else if (ref) {
+      ref.current = node;
+    }
+  };
+
   useEffect(() => {
-    if (isOpen && dayPeekGridRef.current) {
+    if (isOpen && internalRef.current) {
       const now = new Date();
       const top =
         (now.getHours() * (60 / SLOT_MIN) + now.getMinutes() / SLOT_MIN) *
         slotHeight;
-      dayPeekGridRef.current.scrollTop =
-        top - dayPeekGridRef.current.clientHeight / 2;
+      internalRef.current.scrollTop =
+        top - internalRef.current.clientHeight / 2;
     }
   }, [isOpen, slotHeight]);
 
@@ -38,7 +48,7 @@ export function DayPeek() {
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
           <TimeGrid
-            ref={dayPeekGridRef}
+            ref={setRefs}
             tasks={tasks}
             blocks={blocks}
             newBlock={null}
@@ -55,4 +65,6 @@ export function DayPeek() {
       )}
     </AnimatePresence>
   );
-}
+});
+
+DayPeek.displayName = "DayPeek";

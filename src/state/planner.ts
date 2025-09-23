@@ -4,12 +4,15 @@ import { Block, Task, WorkItem } from "../types";
 import { ParsedTask } from "../types/composer";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
+import { todayISO } from "@/lib/utils";
 
 export type State = {
   tasks: Task[];
   blocks: Block[];
   focusQueue: string[];
   activeFocus: string[];
+  previewBlock: Block | null;
+  isHoveringMiniDayRail: boolean;
 }
 
 type Actions = {
@@ -19,7 +22,7 @@ type Actions = {
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   setBlocks: (blocks: Block[] | ((prev: Block[]) => Block[])) => void;
-  addBlock: (block: Block) => void;
+  addBlock: (block: Omit<Block, 'id'>) => void;
   addAtomicBlock: (block: Omit<Block, 'id' | 'kind'>) => void;
   addWorkItem: (blockId: string, item: WorkItem) => void;
   saveBlocks: (date: string) => void;
@@ -28,6 +31,8 @@ type Actions = {
   startFocusSession: () => void;
   clearFocusQueue: () => void;
   endFocusSession: () => void;
+  setPreviewBlock: (block: Block | null) => void;
+  setIsHoveringMiniDayRail: (isHovering: boolean) => void;
 }
 
 const usePlanner = create<State & Actions>()(
@@ -37,6 +42,8 @@ const usePlanner = create<State & Actions>()(
       blocks: [],
       focusQueue: [],
       activeFocus: [],
+      previewBlock: null,
+      isHoveringMiniDayRail: false,
       fetchTasks: async () => {
         // This will need updating when backend types change
         const tasks = await invoke<Task[]>("get_tasks");
@@ -85,7 +92,9 @@ const usePlanner = create<State & Actions>()(
         }
       },
       addBlock: (block) => {
-        set((state) => ({ blocks: [...state.blocks, block] }));
+        const newBlock = { ...block, id: uuidv4() };
+        set((state) => ({ blocks: [...state.blocks, newBlock] }));
+        get().saveBlocks(todayISO());
       },
       addAtomicBlock: (block) => {
         const newBlock: Block = {
@@ -137,6 +146,12 @@ const usePlanner = create<State & Actions>()(
       endFocusSession: () => {
         set({ activeFocus: [] });
       },
+      setPreviewBlock: (block) => {
+        set({ previewBlock: block });
+      },
+      setIsHoveringMiniDayRail: (isHovering) => {
+        set({ isHoveringMiniDayRail: isHovering });
+      }
     }),
     { name: 'planner-store' }
   )

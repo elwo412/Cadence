@@ -1,21 +1,55 @@
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDndMonitor } from "@dnd-kit/core";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { usePlanner } from "@/state/planner";
 import { DAY_END, DAY_START, SLOT_MIN, minsToHHMM } from "@/lib/time";
 import { Task } from "@/types";
+import { cn } from "@/lib/utils";
 
 const SLOT_PX = 3; // Corresponds to 5 minute slots if SLOT_MIN is 5
+const PREVIEW_SLOT_MIN = 15;
+
+function DroppableSlot({ absMin }: { absMin: number }) {
+  const { setNodeRef } = useDroppable({ id: `slot-${absMin}` });
+  const dayStartMin = DAY_START.split(":").map(Number).reduce((h, m) => h * 60 + m);
+
+  return (
+    <div
+      ref={setNodeRef}
+      className="z-10"
+      style={{
+        position: "absolute",
+        top: (absMin - dayStartMin) * SLOT_PX,
+        height: PREVIEW_SLOT_MIN * SLOT_PX,
+        left: 0,
+        right: 0,
+      }}
+    />
+  );
+}
 
 export function MiniDayRail() {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isDraggingTask, setIsDraggingTask] = useState(false);
   const tasks = usePlanner(s => s.tasks);
   const blocks = usePlanner(s => s.blocks);
+  const previewBlock = usePlanner(s => s.previewBlock);
+  const isHoveringMiniDayRail = usePlanner(s => s.isHoveringMiniDayRail);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dayStartMin = DAY_START.split(":").map(Number).reduce((h, m) => h * 60 + m);
   const dayEndMin = DAY_END.split(":").map(Number).reduce((h, m) => h * 60 + m);
   const totalMinutes = dayEndMin - dayStartMin;
+
+  useDndMonitor({
+    onDragStart: (event) => {
+      if (event.active.data.current?.type === 'TASK') {
+        setIsDraggingTask(true);
+      }
+    },
+    onDragEnd: () => setIsDraggingTask(false),
+    onDragCancel: () => setIsDraggingTask(false),
+  });
 
   const now = new Date();
   const nowPx = ((now.getHours() * 60 + now.getMinutes()) - dayStartMin) * SLOT_PX;
@@ -35,16 +69,13 @@ export function MiniDayRail() {
     return tasks.find((t) => t.id === id);
   };
 
-  const { setNodeRef, isOver } = useDroppable({ id: "mini-day-rail" });
-
   return (
     <motion.aside
-      ref={setNodeRef}
       className="relative h-full bg-[var(--card)] border-l border-t border-b border-[var(--card-border)] rounded-3xl overflow-hidden"
       initial={{ width: 72 }}
       animate={{
-        width: isExpanded ? 240 : 72,
-        boxShadow: isOver
+        width: isExpanded || isDraggingTask ? 240 : 72,
+        boxShadow: isHoveringMiniDayRail
           ? "0 0 20px 0 rgba(16, 185, 129, 0.5)"
           : "0 0 0 0 rgba(0,0,0,0)",
       }}
@@ -54,10 +85,9 @@ export function MiniDayRail() {
     >
       <div className="absolute inset-0 overflow-auto thin-scroll" ref={scrollRef}>
         <div className="relative" style={{ height: totalMinutes * SLOT_PX }}>
-
-          {/* Grid lines & Hour markers */}
+          {/* Layer 1: Grid lines & Hour markers (visuals) */}
           <div className="absolute inset-0">
-            {Array.from({ length: (totalMinutes / SLOT_MIN) }).map((_, i) => {
+            {Array.from({ length: totalMinutes / SLOT_MIN }).map((_, i) => {
               const absMin = dayStartMin + i * SLOT_MIN;
               if (absMin === dayStartMin) return null;
 
@@ -71,7 +101,8 @@ export function MiniDayRail() {
                   style={{
                     top: (absMin - dayStartMin) * SLOT_PX,
                     borderColor: isHour ? "var(--hour-line)" : "var(--half-line)",
-                    borderStyle: isHour ? "solid" : (isHalfHour ? "dashed" : "dotted"),
+                    borderStyle:
+                      isHour ? "solid" : isHalfHour ? "dashed" : "dotted",
                   }}
                 />
               );
@@ -90,51 +121,83 @@ export function MiniDayRail() {
               </div>
             )}
           </div>
-          
-          {/* Now-line + pill */}
+
+          {/* Layer 2: Now-line (visual) */}
           <div
-              className="absolute left-1 right-1 h-px"
-              style={{ top: nowPx, background: "var(--now)" }}
+            className="absolute left-1 right-1 h-px"
+            style={{ top: nowPx, background: "var(--now)" }}
           />
           <div
-              className="absolute -translate-y-full right-1 text-[10px] px-1.5 py-0.5 rounded-md"
-              style={{ top: nowPx - 4, background: "rgba(255,85,102,0.2)", color: "var(--now)" }}
+            className="absolute -translate-y-full right-1 text-[10px] px-1.5 py-0.5 rounded-md"
+            style={{
+              top: nowPx - 4,
+              background: "rgba(255,85,102,0.2)",
+              color: "var(--now)",
+            }}
           >
-              Now
+            Now
           </div>
 
-          {/* Blocks */}
+          {/* Layer 3: Scheduled Blocks & Preview (visuals) */}
           <div className="absolute inset-0">
-            {blocks.map((block) => {
+            {[...blocks, ...(previewBlock ? [previewBlock] : [])].map((block) => {
               const top = (block.startMin - dayStartMin) * SLOT_PX;
               const height = block.lengthMin * SLOT_PX;
               const task = getTask(block.taskId ?? null);
-              const timeRange = `${minsToHHMM(block.startMin)} - ${minsToHHMM(block.startMin + block.lengthMin)}`;
+              const timeRange = `${minsToHHMM(block.startMin)} - ${minsToHHMM(
+                block.startMin + block.lengthMin
+              )}`;
+              const isPreview = block.id === 'preview-block';
 
               return (
                 <div
                   key={block.id}
-                  className="absolute left-1 right-1 rounded-xl p-[1px]"
+                  className={cn(
+                    "absolute left-1 right-1 rounded-xl p-[1px]",
+                    isPreview && "opacity-70 z-20 pointer-events-none"
+                  )}
                   style={{
                     top,
                     height,
-                    background: "linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0.06))",
-                    boxShadow: "0 6px 24px rgba(0,0,0,0.35)",
+                    background: isPreview
+                      ? "none"
+                      : "linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0.06))",
+                    boxShadow: isPreview
+                      ? "none"
+                      : "0 6px 24px rgba(0,0,0,0.35)",
                   }}
                   title={`${task?.title} (${timeRange})`}
                 >
-                  <div className="h-full w-full rounded-[10px] bg-black/50 backdrop-blur-sm border border-white/10 text-[11px] px-2 py-1.5 overflow-hidden">
-                    <div className="truncate text-zinc-100">{task?.title}</div>
-                    <div className="text-[10px] text-zinc-400">{timeRange}</div>
-                  </div>
+                  {isPreview ? (
+                    <div className="h-full w-full rounded-[10px] border-2 border-dashed border-emerald-400 bg-emerald-500/10" />
+                  ) : (
+                    <div className="h-full w-full rounded-[10px] bg-black/50 backdrop-blur-sm border border-white/10 text-[11px] px-2 py-1.5 overflow-hidden">
+                      <div className="truncate text-zinc-100">{task?.title}</div>
+                      <div className="text-[10px] text-zinc-400">
+                        {timeRange}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Resize handles */}
-                  <div className="absolute left-3 right-3 -top-1 h-2 cursor-n-resize" />
-                  <div className="absolute left-3 right-3 -bottom-1 h-2 cursor-s-resize" />
+                  {!isPreview && (
+                    <>
+                      <div className="absolute left-3 right-3 -top-1 h-2 cursor-n-resize" />
+                      <div className="absolute left-3 right-3 -bottom-1 h-2 cursor-s-resize" />
+                    </>
+                  )}
                 </div>
               );
             })}
           </div>
           
+          {/* Layer 4: Droppable zones (interaction) */}
+          <div className="absolute inset-0 z-10">
+            {Array.from({ length: totalMinutes / PREVIEW_SLOT_MIN }).map((_, i) => {
+              const absMin = dayStartMin + i * PREVIEW_SLOT_MIN;
+              return <DroppableSlot key={absMin} absMin={absMin} />;
+            })}
+          </div>
         </div>
       </div>
     </motion.aside>
