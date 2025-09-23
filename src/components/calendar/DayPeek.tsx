@@ -1,14 +1,31 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useState } from "react";
-import TodayView from "../tabs/TodayView";
-import { usePlannerStore } from "../../hooks/usePlannerStore";
+import { useEffect, useRef, useState } from "react";
+import { TimeGrid } from "../TimeGrid";
+import { useTasks, useBlocks } from "../../hooks/usePlannerStore";
+import { SLOT_MIN } from "../../lib/time";
 
 export function DayPeek() {
   const [isOpen, setIsOpen] = useState(false);
-  const { tasks, blocks } = usePlannerStore();
+  const tasks = useTasks();
+  const blocks = useBlocks();
+  const dayPeekGridRef = useRef<HTMLDivElement>(null);
+  const zoom = 1.6; // Default zoom
+  const slotHeight = 12 * zoom;
+
   useHotkeys("space", () => setIsOpen(true), { keydown: true });
   useHotkeys("space", () => setIsOpen(false), { keyup: true });
+
+  useEffect(() => {
+    if (isOpen && dayPeekGridRef.current) {
+      const now = new Date();
+      const top =
+        (now.getHours() * (60 / SLOT_MIN) + now.getMinutes() / SLOT_MIN) *
+        slotHeight;
+      dayPeekGridRef.current.scrollTop =
+        top - dayPeekGridRef.current.clientHeight / 2;
+    }
+  }, [isOpen, slotHeight]);
 
   return (
     <AnimatePresence>
@@ -20,8 +37,8 @@ export function DayPeek() {
           exit={{ x: "100%" }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          <TodayView
-            // These props will need to be properly wired up
+          <TimeGrid
+            ref={dayPeekGridRef}
             tasks={tasks}
             blocks={blocks}
             newBlock={null}
@@ -29,8 +46,10 @@ export function DayPeek() {
             previewBlock={null}
             onDeleteBlock={() => {}}
             selectedBlockIds={[]}
-            setSelectedBlockIds={() => {}}
+            handleBlockClick={() => {}}
             onContextMenu={() => {}}
+            onDoubleClickBlock={() => {}}
+            slotHeight={slotHeight}
           />
         </motion.div>
       )}

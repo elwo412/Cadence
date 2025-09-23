@@ -48,8 +48,6 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
     const dayEndMin = parseHHMM(DAY_END);
     const totalSlots = (dayEndMin - dayStartMin) / SLOT_MIN;
 
-    const gridRef = useRef<HTMLDivElement | null>(null);
-
     const { setNodeRef: gridDroppableRef } = useDroppable({ id: "today-grid" });
     const {
       attributes: gridDraggableAttr,
@@ -57,18 +55,12 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
       setNodeRef: gridDraggableRef,
     } = useDraggable({ id: "grid-creator" });
 
-    const setGridRefs = useCallback(
+    const setInnerGridRefs = useCallback(
       (node: HTMLDivElement | null) => {
         gridDroppableRef(node);
         gridDraggableRef(node);
-        gridRef.current = node;
-        if (typeof ref === "function") {
-          ref(node);
-        } else if (ref) {
-          ref.current = node;
-        }
       },
-      [gridDroppableRef, gridDraggableRef, ref]
+      [gridDroppableRef, gridDraggableRef]
     );
 
     const minutesToY = useCallback(
@@ -111,7 +103,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
     };
 
     return (
-      <div ref={gridRef} className="h-full overflow-auto">
+      <div ref={ref} className="h-full overflow-auto">
         <div className="relative p-1">
           <div className="grid grid-cols-[64px_1fr]">
             {/* time rail */}
@@ -143,7 +135,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
 
             {/* grid body */}
             <div
-              ref={setGridRefs}
+              ref={setInnerGridRefs}
               {...gridDraggableAttr}
               {...gridDraggableListeners}
               className="relative"

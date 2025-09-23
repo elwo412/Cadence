@@ -1,0 +1,16 @@
+:root {
+  --bg: #0b0d12;
+  --card: rgba(255,255,255,0.04);
+  --card-border: rgba(255,255,255,0.10);
+  --track: #0e0f14;
+
+  --glow-focus-a: #ff6e6e; /* red */
+  --glow-focus-b: #ffce6e; /* amber */
+  --glow-break-a: #5dd39e; /* teal */
+  --glow-break-b: #6ea8ff; /* blue */
+
+  --now: #ff5566;
+  --hour-line: rgba(255,255,255,0.10);
+  --half-line: rgba(255,255,255,0.06);
+  --band: rgba(255,255,255,0.03);
+}

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 /* 3.1 Tokens with sane defaults */
 :root {
@@ -48,6 +49,15 @@ html[data-os="darwin"] {
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur)); /* Safari/WebKit */
+}
+
+.thin-scroll::-webkit-scrollbar { width: 8px; }
+.thin-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 999px; }
+.thin-scroll:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); }
+
+html {
+  font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 ::-webkit-scrollbar {
