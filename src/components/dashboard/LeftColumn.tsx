@@ -58,6 +58,9 @@ export function LeftColumn() {
     pct,
   } = useTimer(workMin, breakMin, onSessionComplete);
 
+  const pomodoroCycle = 4;
+  const completedPomodoros = log.filter(s => s.kind === 'focus').length;
+
   const handleStartTimer = () => {
     if (!running) {
       startFocusSession();
@@ -114,12 +117,27 @@ export function LeftColumn() {
             totalSeconds={mode === 'focus' ? workMin * 60 : breakMin * 60}
             mode={mode}
           />
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-5xl font-semibold tracking-tight">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <div className="text-6xl font-semibold tracking-tight my-1">
               {String(Math.floor(secs / 60)).padStart(2, "0")}:
               {String(Math.floor(secs) % 60).padStart(2, "0")}
             </div>
-            <div className="mt-2 text-xs uppercase tracking-widest text-zinc-400">
+            <div className="flex items-center gap-2 my-2">
+              {Array.from({ length: pomodoroCycle }).map((_, i) => {
+                const isDoneOrActive = i < completedPomodoros % pomodoroCycle || (i === completedPomodoros % pomodoroCycle && running && mode === 'focus');
+                return (
+                  <div 
+                    key={i} 
+                    className={`h-1 w-3 rounded-full transition-colors ${
+                      isDoneOrActive
+                      ? 'bg-[var(--glow-focus-a)]'
+                      : 'bg-zinc-700'
+                    }`}
+                  ></div>
+                )
+              })}
+            </div>
+            <div className="text-xs uppercase tracking-widest text-zinc-500">
               {mode === "focus" ? "FOCUS" : "BREAK"}
             </div>
           </div>
