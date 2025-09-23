@@ -4,7 +4,7 @@ export type Task = {
   id: string;
   title: string;
   done: boolean;
-  est: number; // minutes
+  est_minutes: number; // minutes
   notes: string | null;
   project: string | null;
   tags: string[] | null;
@@ -23,7 +23,7 @@ export type Session = {
 
 export type WorkItem = {
   taskId: string;
-  est: number; // minutes
+  est_minutes: number; // minutes
 };
 
 export type Block = {

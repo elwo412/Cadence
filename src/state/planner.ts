@@ -54,7 +54,7 @@ const usePlanner = create<State & Actions>()(
           done: false,
           tags: task.tags || [],
           priority: task.priority || 2,
-          est: task.est || 25,
+          est_minutes: task.est || 25,
           createdAt: new Date().toISOString(),
           due: null,
           notes: null,

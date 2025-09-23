@@ -30,7 +30,7 @@ export const getBacklogCandidates = (tasks: Task[], blocks: Block[], dateISO: st
     const score = (t: Task) =>
       (t.due ? -new Date(t.due).getTime() : 0) +
       (t.priority ? (4 - t.priority) * 1e10 : 0) +
-      ((t.est ?? 0) <= 15 ? 5e9 : 0) +
+      ((t.est_minutes ?? 0) <= 15 ? 5e9 : 0) +
       (t.createdAt ? -new Date(t.createdAt).getTime() * 0.1 : 0);
 
     return res.sort((a, b) => {

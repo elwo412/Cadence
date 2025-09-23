@@ -1,9 +1,9 @@
 import { usePlanner } from "@/state/planner";
 import { Block } from "@/types";
 
-function workRemaining(block: Block, store = usePlanner.getState()): number {
+function workRemaining(block: Block, store: ReturnType<typeof usePlanner.getState>) {
     if (block.kind !== 'work' || !block.items) return 0;
-    const used = block.items.reduce((sum, item) => sum + item.est, 0);
+    const used = block.items.reduce((sum, item) => sum + item.est_minutes, 0);
     return block.lengthMin - used;
 }
 
@@ -29,33 +29,31 @@ function findNextGapThatFits(blocks: Block[], dateISO: string, est: number, dayS
 }
 
 
-export function scheduleNextFreeSlot(taskId: string, dateISO: string, store = usePlanner.getState()) {
-    const est = Math.max(5, Math.min(180, Math.round((store.tasks.find(t=>t.id===taskId)?.est ?? 30)/5)*5));
+export function scheduleNextFreeSlot(taskId: string, dateISO: string) {
+    const store = usePlanner.getState();
+    const est = Math.max(5, Math.min(180, Math.round((store.tasks.find(t=>t.id===taskId)?.est_minutes ?? 30)/5)*5));
     // 1) try to fill work blocks if est<=15
     if (est <= 15) {
-      const work = store.blocks.filter(b => b.dateISO===dateISO && b.kind==='work')
-        .sort((a,b)=>a.startMin-b.startMin);
+      const work = store.blocks.filter(b => b.kind === 'work' && b.dateISO === dateISO);
       for (const b of work) if (workRemaining(b, store) >= est) {
-        store.addWorkItem(b.id, { taskId, est }); 
-        return { kind:'work', blockId:b.id };
+        store.addWorkItem(b.id, { taskId, est_minutes: est });
+        return;
       }
     }
-    // 2) compute free gaps & place atomic block
+    // 2) find next available atomic slot
     const slot = findNextGapThatFits(store.blocks, dateISO, est);
     if (!slot) {
-        console.log("No slot found");
-        return null;
+        console.warn("No free slot found for task", taskId);
+        return;
     }
     store.addAtomicBlock({ taskId, dateISO, startMin: slot.start, lengthMin: est });
-    return { kind:'atomic' };
-  }
+}
   
   export function autoPlace(taskIds: string[], dateISO: string) {
     const store = usePlanner.getState();
-    const tasks = store.tasks.filter(t => taskIds.includes(t.id)).sort((a, b) => b.est - a.est);
+    const tasks = store.tasks.filter(t => taskIds.includes(t.id)).sort((a, b) => b.est_minutes - a.est_minutes);
     
     for (const task of tasks) {
         scheduleNextFreeSlot(task.id, dateISO);
     }
-    console.log(`Auto-placed ${taskIds.length} tasks on ${dateISO}`);
   }

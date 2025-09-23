@@ -37,7 +37,7 @@ function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: bo
         <Checkbox id={task.id} checked={selected} onCheckedChange={onToggleSelect} />
       </div>
       <div className="flex items-center gap-2 text-xs text-zinc-400">
-        <span>~{task.est}m</span>
+        <span>~{task.est_minutes}m</span>
         {task.tags?.map(tag => (
           <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-white/10 rounded-md">{tag}</span>
         ))}
@@ -52,7 +52,7 @@ function BeltScroller({ items, expanded, selectedIds, onToggleSelect }: { items:
       <AnimatePresence>
         <motion.div
           key={expanded ? 'expanded' : 'collapsed'}
-          className={`flex ${expanded ? 'flex-wrap flex-row p-3 gap-3 overflow-y-auto' : 'flex-nowrap p-2 gap-2 overflow-x-auto'} w-full h-full thin-scroll`}
+          className={`flex ${expanded ? 'flex-wrap flex-row p-3 gap-3 overflow-y-auto' : 'flex-nowrap p-2 gap-2 overflow-x-hidden'} w-full h-full thin-scroll`}
         >
           {items.map(task => (
             <TaskCard key={task.id} task={task} selected={selectedIds.has(task.id)} onToggleSelect={() => onToggleSelect(task.id)} />
@@ -117,7 +117,7 @@ export function BacklogBelt({ dateISO }: { dateISO: string }) {
     all: all.length,
     due: all.filter(t => t.due).length,
     high: all.filter(t => t.priority === 1).length,
-    micro: all.filter(t => t.est <= 15).length,
+    micro: all.filter(t => t.est_minutes <= 15).length,
     recent: all.filter(t => new Date(t.createdAt) > new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)).length,
     pinned: 0, // Pinned not implemented yet
   }), [all]);
@@ -126,7 +126,7 @@ export function BacklogBelt({ dateISO }: { dateISO: string }) {
     switch (stack) {
       case 'due': return all.filter(t => t.due);
       case 'high': return all.filter(t => t.priority === 1);
-      case 'micro': return all.filter(t => t.est <= 15);
+      case 'micro': return all.filter(t => t.est_minutes <= 15);
       case 'recent': return all.filter(t => new Date(t.createdAt) > new Date(Date.now() - 3 * 24 * 60 * 60 * 1000));
       default: return all;
     }
@@ -154,12 +154,12 @@ export function BacklogBelt({ dateISO }: { dateISO: string }) {
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
       className="mt-2 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm flex flex-col flex-shrink-0"
-      animate={{ height: expanded ? 180 : 56 }}
+      animate={{ height: expanded ? 240 : 56 }}
       transition={{ duration: 0.2, ease: "easeInOut" }}
       role="complementary" aria-label="Backlog belt"
     >
       <BeltHeader stack={stack} setStack={setStack} counts={counts} />
-      <BeltScroller items={items} expanded={expanded} selectedIds={selectedIds} onToggleSelect={handleToggleSelect} />
+      {expanded && <BeltScroller items={items} expanded={expanded} selectedIds={selectedIds} onToggleSelect={handleToggleSelect} />}
       {expanded && <BeltFooter selectedCount={selectedIds.size} onAutoPlace={handleAutoPlace} />}
     </motion.div>
   );
