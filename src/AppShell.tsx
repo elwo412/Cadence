@@ -42,6 +42,7 @@ function TaskDragOverlay({ task }: { task: Task }) {
 export default function AppShell() {
   const [activeView, setActiveView] = useState("home");
   const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
+  const [isOverRail, setIsOverRail] = useState(false);
   const { setPreviewBlock, addBlock, setIsHoveringMiniDayRail } = usePlanner();
 
   const pages: { [key: string]: React.ReactNode } = {
@@ -89,13 +90,10 @@ export default function AppShell() {
     const overId = over?.id;
     const activeData = active.data.current;
 
-    if (!overId || activeData?.type !== 'TASK') {
-      setPreviewBlock(null);
-      setIsHoveringMiniDayRail(false);
-      return;
-    }
+    const isOverSlot = typeof overId === 'string' && overId.startsWith('slot-');
+    setIsOverRail(isOverSlot);
 
-    if (typeof overId === 'string' && overId.startsWith('slot-')) {
+    if (isOverSlot && activeData?.type === 'TASK') {
       const startMin = parseInt(overId.split('-')[1]);
       const task = activeData.task as Task;
       if (task) {
@@ -110,19 +108,20 @@ export default function AppShell() {
         });
       }
     } else {
-      setPreviewBlock(null);
       setIsHoveringMiniDayRail(false);
+      setPreviewBlock(null);
     }
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragTask(null);
-    if (previewBlock && event.over) {
+    if (previewBlock && isOverRail) {
       const { id, ...newBlock } = previewBlock;
       addBlock(newBlock);
     }
     setPreviewBlock(null);
     setIsHoveringMiniDayRail(false);
+    setIsOverRail(false);
   };
 
   const handleDragCancel = (event: DragCancelEvent) => {
@@ -140,7 +139,7 @@ export default function AppShell() {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
-      collisionDetection={closestCenter}
+      collisionDetection={pointerWithin}
     >
       <div className="h-screen w-screen bg-black flex text-sm text-zinc-100 font-sans">
         <LeftNav active={activeView} setActive={setActiveView} />
