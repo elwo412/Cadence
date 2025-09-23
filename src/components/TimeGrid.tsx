@@ -1,6 +1,6 @@
-import React, { forwardRef, useCallback, useRef } from "react";
+import React, { forwardRef, useCallback } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { DayBlock, Task } from "../types";
+import { Block, Task } from "../types";
 import {
   DAY_END,
   DAY_START,
@@ -15,10 +15,10 @@ import { BlockCard } from "./BlockCard";
 
 type TimeGridProps = {
   slotHeight: number;
-  newBlock: DayBlock | null;
-  activeBlock: DayBlock | null;
-  previewBlock: DayBlock | null;
-  blocks: DayBlock[];
+  newBlock: Block | null;
+  activeBlock: Block | null;
+  previewBlock: Block | null;
+  blocks: Block[];
   tasks: Task[];
   onDeleteBlock: (id: string) => void;
   selectedBlockIds: string[];
@@ -72,9 +72,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
       const blockToRender = newBlock || activeBlock || previewBlock;
       if (!blockToRender) return null;
 
-      const startMin = blockToRender.start_slot * SLOT_MIN;
-      const lengthMin =
-        (blockToRender.end_slot - blockToRender.start_slot) * SLOT_MIN;
+      const { startMin, lengthMin } = blockToRender;
 
       const isOverlapping = blocks
         .filter((b) => b.id !== blockToRender.id)
@@ -181,7 +179,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
                     <BlockCard
                       key={b.id}
                       block={b}
-                      task={tasks.find((t) => t.id === b.task_id)}
+                      task={tasks.find((t) => t.id === b.taskId)}
                       onDelete={onDeleteBlock}
                       isOverlapping={isOverlapping}
                       isSelected={selectedBlockIds.includes(b.id)}

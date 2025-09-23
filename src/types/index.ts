@@ -1,29 +1,37 @@
-import { ParsedTask } from "./composer";
+export type Priority = 1 | 2 | 3;
 
-export interface Session {
+export type Task = {
+  id: string;
+  title: string;
+  done: boolean;
+  est: number; // minutes
+  notes: string | null;
+  project: string | null;
+  tags: string[] | null;
+  priority: Priority;
+  createdAt: string; // ISO string
+  due: string | null; // ISO string
+};
+
+export type Session = {
+  at: string;
   kind: "focus" | "break";
   minutes: number;
   completed: boolean;
   taskIds?: string[];
-  at: string;
-}
+};
 
-export interface Task {
-  id: string;
-  title: string;
-  done: boolean;
-  est_minutes: number;
-  notes: string | null;
-  project: string | null;
-  tags: string[] | null;
-  created_at: string;
-  priority?: number;
-}
+export type WorkItem = {
+  taskId: string;
+  est: number; // minutes
+};
 
-export interface DayBlock {
+export type Block = {
   id: string;
-  task_id: string | null;
-  date: string;
-  start_slot: number;
-  end_slot: number;
-}
+  dateISO: string;
+  startMin: number; // minutes from midnight
+  lengthMin: number;
+  kind: "atomic" | "work";
+  taskId?: string; // for atomic blocks
+  items?: WorkItem[]; // for work blocks
+};

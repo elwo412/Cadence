@@ -1,20 +1,20 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Session } from "../../types";
-import { useTimer } from "../../hooks/useTimer";
-import usePlannerStore, { useActiveFocus, useFocusQueue, useTasks } from "../../hooks/usePlannerStore";
-import { FocusRing } from "../focus/FocusRing";
+import { Session } from "@/types";
+import { useTimer } from "@/hooks/useTimer";
+import { usePlanner } from "@/state/planner";
+import { FocusRing } from "@/components/focus/FocusRing";
 import { Check, Clock, Pause, Play, Settings, StopCircle } from "lucide-react";
-import SettingsModal from "../SettingsModal";
+import SettingsModal from "@/components/SettingsModal";
 
 export function LeftColumn() {
-  const tasks = useTasks();
-  const focusQueue = useFocusQueue();
-  const activeFocus = useActiveFocus();
-  const toggleFocus = usePlannerStore(s => s.toggleFocus);
-  const startFocusSession = usePlannerStore(s => s.startFocusSession);
-  const clearFocusQueue = usePlannerStore(s => s.clearFocusQueue);
-  const endFocusSession = usePlannerStore(s => s.endFocusSession);
+  const tasks = usePlanner((state) => state.tasks);
+  const focusQueue = usePlanner((state) => state.focusQueue);
+  const activeFocus = usePlanner((state) => state.activeFocus);
+  const toggleFocus = usePlanner((state) => state.toggleFocus);
+  const startFocusSession = usePlanner((state) => state.startFocusSession);
+  const clearFocusQueue = usePlanner((state) => state.clearFocusQueue);
+  const endFocusSession = usePlanner((state) => state.endFocusSession);
 
   const [log, setLog] = useState<Session[]>([]);
 

@@ -2,11 +2,10 @@
 @import "./styles/tokens.css";
 
 /* 3.1 Tokens with sane defaults */
-:root {
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-stroke: rgba(255, 255, 255, 0.1);
-  --glass-blur: 24px;
-  --glass-shadow: 0 0 110px rgba(255, 110, 110, 0.08);
+@layer base {
+  :root {
+    --glass-blur: 12px;
+  }
 }
 
 /* 3.2 Per-OS tweaks: Linux often looks “more transparent” → bump tint/blur */
@@ -58,6 +57,16 @@ html[data-os="darwin"] {
 html {
   font-family: "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
 }
 
 ::-webkit-scrollbar {

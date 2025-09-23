@@ -1,14 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useEffect, useRef, useState } from "react";
-import { TimeGrid } from "../TimeGrid";
-import { useTasks, useBlocks } from "../../hooks/usePlannerStore";
-import { SLOT_MIN } from "../../lib/time";
+import { TimeGrid } from "@/components/TimeGrid";
+import { usePlanner } from "@/state/planner";
+import { SLOT_MIN } from "@/lib/time";
 
 export function DayPeek() {
   const [isOpen, setIsOpen] = useState(false);
-  const tasks = useTasks();
-  const blocks = useBlocks();
+  const tasks = usePlanner(s => s.tasks);
+  const blocks = usePlanner(s => s.blocks);
   const dayPeekGridRef = useRef<HTMLDivElement>(null);
   const zoom = 1.6; // Default zoom
   const slotHeight = 12 * zoom;
