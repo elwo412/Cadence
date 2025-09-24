@@ -9,6 +9,9 @@ import usePlanner from "../../state/planner";
 import { Pin } from "lucide-react";
 import { useHotkeys, useHotkeysContext } from "react-hotkeys-hook";
 import { cn } from "@/lib/utils";
+import ContextMenu, { ContextMenuItem } from "@/components/ContextMenu";
+import { todayISO } from "@/lib/utils";
+import { createPortal } from "react-dom";
 
 export function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: boolean, onToggleSelect: () => void; }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
@@ -20,6 +23,8 @@ export function TaskCard({ task, selected, onToggleSelect }: { task: Task; selec
     },
   });
   const toggleToday = usePlanner(s => s.toggleToday);
+  const updateTask = usePlanner(s => s.updateTask);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   let cardRef: HTMLDivElement | null = null;
 
   const setCombinedRef = (node: HTMLDivElement) => {
@@ -33,41 +38,71 @@ export function TaskCard({ task, selected, onToggleSelect }: { task: Task; selec
     }
   }, { scopes: ['tasks'] });
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  }
 
   return (
-    <div
-      ref={setCombinedRef}
-      {...listeners}
-      {...attributes}
-      className="flex-shrink-0 w-64 rounded-xl border border-white/10 bg-black/40 hover:bg-black/55 shadow-[0_6px_18px_rgba(0,0,0,0.35)] p-3 flex flex-col gap-2 relative cursor-grab"
-    >
-      <div className="flex items-start justify-between">
-        <span className="text-zinc-200 text-sm">{task.title}</span>
-        <div className="flex items-center gap-2">
-           <button
-            onClick={() => toggleToday(task.id)}
-            title={task.isToday ? "Remove from Today" : "Add to Today"}
-            className="p-1 rounded-full hover:bg-white/10 transition-colors"
-           >
-            <Pin
-              size={14}
-              className={cn(
-                "transition-colors",
-                task.isToday ? "text-amber-400" : "text-zinc-500 hover:text-zinc-300"
-              )}
-              fill={task.isToday ? "currentColor" : "none"}
-            />
-          </button>
-          <Checkbox id={task.id} checked={selected} onCheckedChange={onToggleSelect} />
+    <>
+      <div
+        ref={setCombinedRef}
+        {...listeners}
+        {...attributes}
+        onContextMenu={handleContextMenu}
+        className="flex-shrink-0 w-64 rounded-xl border border-white/10 bg-black/40 hover:bg-black/55 shadow-[0_6px_18px_rgba(0,0,0,0.35)] p-3 flex flex-col gap-2 relative cursor-grab"
+      >
+        <div className="flex items-start justify-between">
+          <span className="text-zinc-200 text-sm">{task.title}</span>
+          <div className="flex items-center gap-2">
+             <button
+              onClick={() => toggleToday(task.id)}
+              title={task.isToday ? "Remove from Today" : "Add to Today"}
+              className="p-1 rounded-full hover:bg-white/10 transition-colors"
+             >
+              <Pin
+                size={14}
+                className={cn(
+                  "transition-colors",
+                  task.isToday ? "text-amber-400" : "text-zinc-500 hover:text-zinc-300"
+                )}
+                fill={task.isToday ? "currentColor" : "none"}
+              />
+            </button>
+            <Checkbox id={task.id} checked={selected} onCheckedChange={onToggleSelect} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-zinc-400">
+          <span>~{task.est_minutes}m</span>
+          {task.tags?.map(tag => (
+            <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-white/10 rounded-md">{tag}</span>
+          ))}
         </div>
       </div>
-      <div className="flex items-center gap-2 text-xs text-zinc-400">
-        <span>~{task.est_minutes}m</span>
-        {task.tags?.map(tag => (
-          <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-white/10 rounded-md">{tag}</span>
-        ))}
-      </div>
-    </div>
+      {contextMenu && createPortal(
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <ContextMenuItem onClick={() => {
+            toggleToday(task.id);
+            setContextMenu(null);
+          }}>
+            Pin to Today
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => {
+            updateTask(task.id, { due: todayISO() });
+            setContextMenu(null);
+          }}>
+            Set due today
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => {
+            autoPlace([task.id], todayISO());
+            setContextMenu(null);
+          }}>
+            Schedule next free
+          </ContextMenuItem>
+        </ContextMenu>,
+        document.body
+      )}
+    </>
   )
 }
 
@@ -109,15 +144,15 @@ function BeltHeader({ stack, setStack, counts }: { stack: Stack; setStack: (s: S
   )
 }
 
-function BeltFooter({ selectedCount, onAutoPlace }: { selectedCount: number, onAutoPlace: () => void }) {
+function BeltFooter({ selectedCount, onAddToToday }: { selectedCount: number, onAddToToday: () => void }) {
   return (
     <div className="flex-shrink-0 flex items-center justify-end px-3 pb-2">
       <button
-        onClick={onAutoPlace}
+        onClick={onAddToToday}
         disabled={selectedCount === 0}
         className="px-3 py-1 rounded-lg bg-white/10 text-zinc-200 text-sm disabled:opacity-50 hover:bg-white/20 disabled:cursor-not-allowed"
       >
-        Auto-place ({selectedCount})
+        Add to Today ({selectedCount})
       </button>
     </div>
   )
@@ -127,6 +162,7 @@ function BeltFooter({ selectedCount, onAutoPlace }: { selectedCount: number, onA
 export function BacklogBelt({ dateISO }: { dateISO: string }) {
   const tasks  = usePlanner(s => s.tasks);
   const blocks = usePlanner(s => s.blocks);
+  const toggleToday = usePlanner(s => s.toggleToday);
   const all = useMemo(() => getBacklogCandidates(tasks, blocks, dateISO), [tasks, blocks, dateISO]);
   const { enableScope, disableScope } = useHotkeysContext();
   
@@ -177,8 +213,10 @@ export function BacklogBelt({ dateISO }: { dateISO: string }) {
     });
   };
 
-  const handleAutoPlace = () => {
-    autoPlace(Array.from(selectedIds), dateISO);
+  const handleAddToToday = () => {
+    const ids = Array.from(selectedIds);
+    ids.forEach(id => toggleToday(id));
+    autoPlace(ids, dateISO);
     setSelectedIds(new Set());
   }
 
@@ -201,7 +239,7 @@ export function BacklogBelt({ dateISO }: { dateISO: string }) {
     >
       <BeltHeader stack={stack} setStack={setStack} counts={counts} />
       {expanded && <BeltScroller items={items} expanded={expanded} selectedIds={selectedIds} onToggleSelect={handleToggleSelect} />}
-      {expanded && <BeltFooter selectedCount={selectedIds.size} onAutoPlace={handleAutoPlace} />}
+      {expanded && <BeltFooter selectedCount={selectedIds.size} onAddToToday={handleAddToToday} />}
     </motion.div>
   );
 }
