@@ -12,12 +12,12 @@ import { invoke } from "@tauri-apps/api/core";
 import toast from "react-hot-toast";
 
 // A placeholder for a generic API call helper
-async function postJSON(command: string, payload: any): Promise<any> {
+async function postJSON<T>(command: string, payload: Record<string, unknown>): Promise<T> {
   // In a real web app, this would be a fetch call.
   // For Tauri, we'll invoke a Rust command.
   try {
     const result = await invoke(command, payload);
-    return result;
+    return result as T;
   } catch (error) {
     if (typeof error === "string" && error.includes("API key not found")) {
       toast.error("OpenAI API key not set. Please add it in Settings.");
@@ -36,7 +36,7 @@ Return JSON: { "tasks": [{ "title": SAME_AS_INPUT, "est": minutes (5..180), "tag
 
 export async function llmPlanWithAI(
   messages: { role: "user" | "assistant" | "system"; content: string }[],
-  constraints: any
+  constraints: Record<string, unknown>
 ): Promise<PlanWithAIResponse> {
   const sys = `You are a planning copilot. Break goals into small, actionable tasks. Each task must have a verb-first title and an estimated duration in minutes (est) between 5 and 90.
 Respect user's working hours and the following constraints: ${JSON.stringify(

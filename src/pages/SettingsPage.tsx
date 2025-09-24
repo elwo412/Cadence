@@ -1,7 +1,7 @@
 import { useState } from "react";
-import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { invoke } from "@tauri-apps/api/core";
-import { usePlanner } from "@/state/planner";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
+import usePlanner from "@/state/planner";
 
 export default function SettingsPage() {
   const [isPurgeConfirmOpen, setIsPurgeConfirmOpen] = useState(false);
@@ -49,7 +49,7 @@ export default function SettingsPage() {
         onClose={() => setIsPurgeConfirmOpen(false)}
         onConfirm={handlePurge}
         title="Are you absolutely sure?"
-        message="This will permanently delete all your tasks and scheduled blocks. This action cannot be undone."
+        message="This action cannot be undone. This will permanently delete all your data."
         confirmText="Yes, purge everything"
       />
     </div>

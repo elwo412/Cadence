@@ -1,31 +1,22 @@
-import { useState } from "react";
-import { parseLines } from "../../lib/parsing";
 import { ParsedTask } from "../../types/composer";
 import { CompactAdd } from "../CompactAdd";
+import { parseLines } from "../../lib/parsing";
 
 type QuickAddTabProps = {
   onAccept: (tasks: ParsedTask[]) => void;
 };
 
-export default function QuickAddTab({ onAccept }: QuickAddTabProps) {
-  const [input, setInput] = useState("");
-  const parsed = parseLines(input);
-
+export const QuickAddTab = ({ onAccept }: QuickAddTabProps) => {
   return (
     <div>
-      <p className="text-sm text-zinc-400 mb-2 px-1">
-        Enter tasks one per line. Use tokens like{" "}
-        <code className="text-zinc-300">#tag</code>,{" "}
-        <code className="text-zinc-300">~25m</code>, and{" "}
-        <code className="text-zinc-300">!p1</code>.
-      </p>
       <CompactAdd
-        value={input}
-        setValue={setInput}
-        onAdd={onAccept}
-        parsed={parsed}
+        placeholder="Add one or more tasks..."
         multiline
+        onAdd={(text) => onAccept(parseLines(text))}
       />
+      <div className="mt-2 text-xs text-zinc-500">
+        Tip: Type "My new task ~30m #work p2" to add details.
+      </div>
     </div>
   );
-}
+};

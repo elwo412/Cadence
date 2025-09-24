@@ -7,7 +7,6 @@ import { cn } from "../lib/utils";
 type BlockCardProps = {
   block: Block;
   task?: Task;
-  onDelete: (id: string) => void;
   isOverlapping: boolean;
   isSelected: boolean;
   onClick: (e: React.MouseEvent) => void;
@@ -19,7 +18,6 @@ type BlockCardProps = {
 export function BlockCard({
   block,
   task,
-  onDelete,
   isOverlapping,
   isSelected,
   onClick,

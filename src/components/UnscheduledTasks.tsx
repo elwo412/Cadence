@@ -1,57 +1,12 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { Task } from "../types";
-import TaskRow from "./TaskRow";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { Wand2 } from "lucide-react";
-import { CompactAdd } from "./CompactAdd";
-import { ParsedTask, parseLines } from "../lib/parsing";
 import React from "react";
-
-type DraggableTaskRowProps = {
-  task: Task;
-  inQueue: (id: string) => boolean;
-  toggleFocusForTask: (id: string) => void;
-  toggleTask: (id: string) => void;
-  onContextMenu?: (e: React.MouseEvent, taskId: string) => void;
-};
-
-const DraggableTaskRow = ({
-  task,
-  inQueue,
-  toggleFocusForTask,
-  toggleTask,
-  onContextMenu,
-}: DraggableTaskRowProps) => {
-  const { attributes, listeners, setNodeRef } = useDraggable({
-    id: `task-${task.id}`,
-    data: {
-      type: "TASK",
-      task,
-    },
-  });
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.2 }}
-      className="mb-1"
-    >
-      <TaskRow
-        ref={setNodeRef}
-        {...attributes}
-        {...listeners}
-        task={task}
-        onToggle={toggleTask}
-        inQueue={inQueue}
-        onToggleFocus={toggleFocusForTask}
-        onContextMenu={(e) => onContextMenu?.(e, task.id)}
-      />
-    </motion.div>
-  );
-};
+import { useDroppable } from "@dnd-kit/core";
+import { AnimatePresence } from "framer-motion";
+import { Wand2 } from "lucide-react";
+import { Task } from "../types";
+import { ParsedTask } from "../types/composer";
+import { CompactAdd } from "./CompactAdd";
+import { DraggableTaskRow } from "./TaskListView";
+import { parseLine } from "../lib/parsing";
 
 type UnscheduledTasksProps = {
   tasks: Task[];
@@ -59,8 +14,7 @@ type UnscheduledTasksProps = {
   inQueue: (id: string) => boolean;
   toggleFocusForTask: (id: string) => void;
   toggleTask: (id: string) => void;
-  addTask: (tasks: ParsedTask[]) => void;
-  onOpenComposer: () => void;
+  addTask: (task: ParsedTask) => void;
   onTaskContextMenu: (e: React.MouseEvent, taskId: string) => void;
 };
 
@@ -71,23 +25,20 @@ export default function UnscheduledTasks({
   toggleFocusForTask,
   toggleTask,
   addTask,
-  onOpenComposer,
   onTaskContextMenu,
 }: UnscheduledTasksProps) {
   const { setNodeRef } = useDroppable({ id: "unscheduled-tray" });
-  const [newTask, setNewTask] = React.useState("");
+
+  const handleAddTask = (text: string) => {
+    const parsed = parseLine(text);
+    if (parsed) {
+      addTask(parsed);
+    }
+  };
+
   return (
     <div ref={setNodeRef} className="h-full flex flex-col">
-      <CompactAdd
-        value={newTask}
-        setValue={setNewTask}
-        onAdd={(parsed) => {
-          addTask(parsed);
-          setNewTask("");
-        }}
-        onOpenComposer={onOpenComposer}
-        parsed={parseLines(newTask)}
-      />
+      <CompactAdd onAdd={handleAddTask} placeholder="Add a task" />
       <div className="flex items-center justify-end gap-2 mt-2">
         <button
           className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10"
@@ -106,9 +57,9 @@ export default function UnscheduledTasks({
                 key={task.id}
                 task={task}
                 inQueue={inQueue}
-                toggleFocusForTask={toggleFocusForTask}
-                toggleTask={toggleTask}
-                onContextMenu={onTaskContextMenu}
+                onToggleFocus={toggleFocusForTask}
+                onToggle={toggleTask}
+                onTaskContextMenu={onTaskContextMenu}
               />
             ))}
         </AnimatePresence>

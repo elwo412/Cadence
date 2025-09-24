@@ -1,4 +1,3 @@
-import React from "react";
 import { LeftColumn } from "../components/dashboard/LeftColumn";
 import { RightColumn } from "../components/dashboard/RightColumn";
 

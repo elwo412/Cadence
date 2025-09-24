@@ -1,26 +1,24 @@
 import {
-  Active,
   DragEndEvent,
   DragMoveEvent,
   DragStartEvent,
-  Over,
 } from "@dnd-kit/core";
 import { RefObject, useState } from "react";
-import { DayBlock, Task } from "../types";
+import { Block, Task } from "../types";
 import { snapToGrid, yToSlot } from "../lib/timeGrid";
 import { v4 as uuidv4 } from "uuid";
 
 export const useCalendarDnD = (
   gridRef: RefObject<HTMLDivElement>,
-  tasks: Task[],
-  blocks: DayBlock[],
-  setBlocks: (blocks: DayBlock[] | ((prev: DayBlock[]) => DayBlock[])) => void,
+  _tasks: Task[],
+  _blocks: Block[],
+  setBlocks: (blocks: Block[] | ((prev: Block[]) => Block[])) => void,
   slotHeight: number = 24
 ) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [activeBlock, setActiveBlock] = useState<DayBlock | null>(null);
-  const [newBlock, setNewBlock] = useState<DayBlock | null>(null);
-  const [previewBlock, setPreviewBlock] = useState<DayBlock | null>(null);
+  const [activeBlock, setActiveBlock] = useState<Block | null>(null);
+  const [newBlock, setNewBlock] = useState<Block | null>(null);
+  const [previewBlock, setPreviewBlock] = useState<Block | null>(null);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -43,10 +41,11 @@ export const useCalendarDnD = (
         : 4;
       setNewBlock({
         id: "preview",
-        task_id: task!.id,
-        date: new Date().toISOString().split("T")[0],
-        start_slot: startSlot,
-        end_slot: startSlot + estSlots,
+        taskId: task!.id,
+        dateISO: new Date().toISOString().split("T")[0],
+        startMin: startSlot,
+        lengthMin: estSlots * 15,
+        kind: 'atomic',
       });
     }
 
@@ -55,8 +54,8 @@ export const useCalendarDnD = (
       const startOffset = Math.round(snappedY / slotHeight);
       setPreviewBlock({
         ...activeBlock,
-        start_slot: activeBlock.start_slot + startOffset,
-        end_slot: activeBlock.end_slot + startOffset,
+        startMin: activeBlock.startMin + startOffset,
+        lengthMin: activeBlock.lengthMin,
       });
     }
   };
@@ -77,7 +76,7 @@ export const useCalendarDnD = (
     setPreviewBlock(null);
   };
 
-  const handleDragOver = (event: { active: Active; over: Over | null }) => {
+  const handleDragOver = () => {
     // Required for dnd-kit to detect overlaps
   };
 

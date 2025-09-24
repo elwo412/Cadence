@@ -24,8 +24,8 @@ const FieldChange = ({
   newVal,
 }: {
   label: string;
-  oldVal?: any;
-  newVal?: any;
+  oldVal?: string | number;
+  newVal?: string | number;
 }) => {
   if (newVal === undefined || newVal === oldVal) return null;
   return (

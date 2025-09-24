@@ -1,6 +1,5 @@
 use crate::db::Database;
 use crate::models::{DayBlock, EnrichResponse, PlanWithAIResponse, RefineResponse, Task};
-use reqwest;
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -205,11 +204,6 @@ pub fn update_setting(key: String, value: String, db: State<Database>) -> Result
         params![key, value],
     )?;
     Ok(())
-}
-
-#[tauri::command]
-pub fn get_platform() -> String {
-    std::env::consts::OS.to_string()
 }
 
 #[derive(Serialize)]

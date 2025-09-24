@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Session } from "@/types";
 import { useTimer } from "@/hooks/useTimer";
-import { usePlanner } from "@/state/planner";
+import usePlanner from "@/state/planner";
 import { FocusRing } from "@/components/focus/FocusRing";
 import { Check, Clock, Pause, Play, Settings, StopCircle } from "lucide-react";
 import SettingsModal from "@/components/SettingsModal";
@@ -55,7 +55,6 @@ export function LeftColumn() {
     startTimer,
     pauseTimer,
     stopAndReset,
-    pct,
   } = useTimer(workMin, breakMin, onSessionComplete);
 
   const pomodoroCycle = 4;

@@ -7,7 +7,8 @@ import {
   BarChart2,
   Settings,
 } from "lucide-react";
-import { View } from "../AppShell";
+
+export type View = "home" | "calendar" | "tasks" | "notes" | "focus" | "insights" | "settings";
 
 const NAV = [
   { to: "home", label: "Home", icon: Home },

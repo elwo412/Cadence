@@ -1,8 +1,7 @@
-import { usePlanner } from "@/state/planner";
-import { Block } from "@/types";
-import { Task } from "@/types";
+import { Block, Task } from "@/types";
+import usePlanner from "@/state/planner";
 
-function workRemaining(block: Block, store: ReturnType<typeof usePlanner.getState>) {
+function workRemaining(block: Block) {
     if (block.kind !== 'work' || !block.items) return 0;
     const used = block.items.reduce((sum, item) => sum + item.est_minutes, 0);
     return block.lengthMin - used;
@@ -36,7 +35,7 @@ export function scheduleNextFreeSlot(taskId: string, dateISO: string) {
     // 1) try to fill work blocks if est<=15
     if (est <= 15) {
       const work = store.blocks.filter(b => b.kind === 'work' && b.dateISO === dateISO);
-      for (const b of work) if (workRemaining(b, store) >= est) {
+      for (const b of work) if (workRemaining(b) >= est) {
         store.addWorkItem(b.id, { taskId, est_minutes: est });
         return;
       }
