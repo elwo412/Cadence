@@ -3,6 +3,7 @@ import React from "react";
 import { Task } from "../types";
 import Chip from "./Chip";
 import { Checkbox } from "./Checkbox";
+import { useDraggable } from "@dnd-kit/core";
 
 type TaskRowProps = {
   task: Task;
@@ -26,11 +27,31 @@ const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
     },
     ref
   ) => {
+    const { attributes, listeners, setNodeRef } = useDraggable({
+      id: `task-${task.id}`,
+      data: {
+        type: 'TASK',
+        taskId: task.id,
+        task,
+      },
+    });
+
+    const setRefs = (node: HTMLDivElement | null) => {
+      if (typeof ref === 'function') {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+      setNodeRef(node);
+    };
+
     return (
       <div
-        ref={ref}
+        ref={setRefs}
         onContextMenu={onContextMenu}
         {...props}
+        {...attributes}
+        {...listeners}
         className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2 cursor-grab"
       >
         {interactive && (

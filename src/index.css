@@ -1,11 +1,11 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 /* 3.1 Tokens with sane defaults */
-:root {
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-stroke: rgba(255, 255, 255, 0.1);
-  --glass-blur: 24px;
-  --glass-shadow: 0 0 110px rgba(255, 110, 110, 0.08);
+@layer base {
+  :root {
+    --glass-blur: 12px;
+  }
 }
 
 /* 3.2 Per-OS tweaks: Linux often looks “more transparent” → bump tint/blur */
@@ -48,6 +48,25 @@ html[data-os="darwin"] {
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur)); /* Safari/WebKit */
+}
+
+.thin-scroll::-webkit-scrollbar { width: 8px; }
+.thin-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 999px; }
+.thin-scroll:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); }
+
+html {
+  font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
 }
 
 ::-webkit-scrollbar {

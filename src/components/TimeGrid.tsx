@@ -1,6 +1,6 @@
-import React, { forwardRef, useCallback, useRef } from "react";
+import React, { forwardRef, useCallback } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { DayBlock, Task } from "../types";
+import { Block, Task } from "../types";
 import {
   DAY_END,
   DAY_START,
@@ -15,10 +15,10 @@ import { BlockCard } from "./BlockCard";
 
 type TimeGridProps = {
   slotHeight: number;
-  newBlock: DayBlock | null;
-  activeBlock: DayBlock | null;
-  previewBlock: DayBlock | null;
-  blocks: DayBlock[];
+  newBlock: Block | null;
+  activeBlock: Block | null;
+  previewBlock: Block | null;
+  blocks: Block[];
   tasks: Task[];
   onDeleteBlock: (id: string) => void;
   selectedBlockIds: string[];
@@ -48,8 +48,6 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
     const dayEndMin = parseHHMM(DAY_END);
     const totalSlots = (dayEndMin - dayStartMin) / SLOT_MIN;
 
-    const gridRef = useRef<HTMLDivElement | null>(null);
-
     const { setNodeRef: gridDroppableRef } = useDroppable({ id: "today-grid" });
     const {
       attributes: gridDraggableAttr,
@@ -57,12 +55,11 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
       setNodeRef: gridDraggableRef,
     } = useDraggable({ id: "grid-creator" });
 
-    const setGridRefs = useCallback(
+    const setInnerGridRefs = useCallback(
       (node: HTMLDivElement | null) => {
         gridDroppableRef(node);
         gridDraggableRef(node);
-        gridRef.current = node;
-        if (typeof ref === "function") {
+        if (typeof ref === 'function') {
           ref(node);
         } else if (ref) {
           ref.current = node;
@@ -80,9 +77,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
       const blockToRender = newBlock || activeBlock || previewBlock;
       if (!blockToRender) return null;
 
-      const startMin = blockToRender.start_slot * SLOT_MIN;
-      const lengthMin =
-        (blockToRender.end_slot - blockToRender.start_slot) * SLOT_MIN;
+      const { startMin, lengthMin } = blockToRender;
 
       const isOverlapping = blocks
         .filter((b) => b.id !== blockToRender.id)
@@ -111,7 +106,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
     };
 
     return (
-      <div ref={gridRef} className="h-full overflow-auto">
+      <div className="h-full overflow-auto">
         <div className="relative p-1">
           <div className="grid grid-cols-[64px_1fr]">
             {/* time rail */}
@@ -143,7 +138,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
 
             {/* grid body */}
             <div
-              ref={setGridRefs}
+              ref={setInnerGridRefs}
               {...gridDraggableAttr}
               {...gridDraggableListeners}
               className="relative"
@@ -189,7 +184,7 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
                     <BlockCard
                       key={b.id}
                       block={b}
-                      task={tasks.find((t) => t.id === b.task_id)}
+                      task={tasks.find((t) => t.id === b.taskId)}
                       onDelete={onDeleteBlock}
                       isOverlapping={isOverlapping}
                       isSelected={selectedBlockIds.includes(b.id)}
