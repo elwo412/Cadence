@@ -1,6 +1,14 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 
 type Mode = "focus" | "break";
+
+type FocusRingProps = {
+  seconds: number;
+  totalSeconds: number;
+  mode: Mode;
+  size?: number;
+  stroke?: number;
+};
 
 export function FocusRing({
   seconds,
@@ -8,13 +16,7 @@ export function FocusRing({
   mode = "focus",
   size = 260,
   stroke = 14,
-}: {
-  seconds: number;
-  totalSeconds: number;
-  mode?: Mode;
-  size?: number;
-  stroke?: number;
-}) {
+}: FocusRingProps) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const pct = Math.min(1, Math.max(0, 1 - seconds / totalSeconds));

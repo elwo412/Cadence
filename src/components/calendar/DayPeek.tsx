@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useHotkeys } from "react-hotkeys-hook";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { TimeGrid } from "@/components/TimeGrid";
-import { usePlanner } from "@/state/planner";
+import usePlanner from "@/state/planner";
 import { SLOT_MIN } from "@/lib/time";
 
 export const DayPeek = forwardRef<HTMLDivElement>((_props, ref) => {
@@ -17,7 +17,7 @@ export const DayPeek = forwardRef<HTMLDivElement>((_props, ref) => {
   useHotkeys("space", () => setIsOpen(false), { keyup: true });
 
   const setRefs = (node: HTMLDivElement | null) => {
-    // @ts-ignore
+    // @ts-expect-error We need to handle both function and object refs
     internalRef.current = node;
     if (typeof ref === 'function') {
       ref(node);

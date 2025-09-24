@@ -4,8 +4,17 @@ import { Block, Task, WorkItem } from "../types";
 import { ParsedTask } from "../types/composer";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
-import { todayISO } from "@/lib/utils";
 import { toast } from "sonner";
+
+// These types represent the data structure coming from the Rust backend
+type BackendTask = Omit<Task, 'isToday'> & { is_today: boolean };
+type BackendBlock = {
+  id: string;
+  task_id: string;
+  date: string;
+  start_slot: number;
+  end_slot: number;
+};
 
 export type State = {
   tasks: Task[];
@@ -47,7 +56,7 @@ const usePlanner = create<State & Actions>()(
       previewBlock: null,
       isHoveringMiniDayRail: false,
       fetchTasks: async () => {
-        const backendTasks = await invoke<any[]>("get_tasks");
+        const backendTasks = await invoke<BackendTask[]>("get_tasks");
         const tasks: Task[] = backendTasks.map(t => ({
           ...t,
           isToday: t.is_today,
@@ -55,7 +64,7 @@ const usePlanner = create<State & Actions>()(
         set({ tasks });
       },
       fetchBlocks: async (date) => {
-        const backendBlocks = await invoke<any[]>("get_blocks_for_date", { date });
+        const backendBlocks = await invoke<BackendBlock[]>("get_blocks_for_date", { date });
         const frontendBlocks: Block[] = backendBlocks.map(b => ({
           id: b.id,
           taskId: b.task_id,
@@ -221,4 +230,4 @@ const usePlanner = create<State & Actions>()(
   )
 );
 
-export { usePlanner };
+export default usePlanner;

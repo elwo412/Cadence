@@ -1,11 +1,11 @@
-import { DayBlock, Task } from "../types";
+import { Block, Task } from "../types";
 
 export const DRAG_DATA_KEY = "application/cadence-dnd";
 
 export type DragData = {
   type: "TASK" | "BLOCK";
   task?: Task;
-  block?: DayBlock;
+  block?: Block;
 };
 
 export const yToSlot = (

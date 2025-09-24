@@ -1,18 +1,20 @@
-import { shallow } from "zustand/shallow";
-import { usePlanner } from "@/state/planner";
+import { useMemo } from "react";
+import usePlanner from "@/state/planner";
 import { isSameDayISO } from "@/lib/time";
-import { Task, Block } from "@/types";
+import { Block, Task } from "@/types";
 
-export const useTodayTaskIdSet = (dateISO: string) =>
-  usePlanner(s => {
+export const useTodayTaskIdSet = (dateISO: string) => {
+  const blocks = usePlanner((s) => s.blocks);
+  return useMemo(() => {
     const ids = new Set<string>();
-    for (const b of s.blocks) {
+    for (const b of blocks) {
       if (!isSameDayISO(b.dateISO, dateISO)) continue;
       if (b.kind === "atomic" && b.taskId) ids.add(b.taskId);
       if (b.kind === "work") for (const it of b.items ?? []) ids.add(it.taskId);
     }
     return ids;
-  }, shallow);
+  }, [blocks, dateISO]);
+};
 
 export const getBacklogCandidates = (tasks: Task[], blocks: Block[], dateISO: string): Task[] => {
     const today = new Set<string>();

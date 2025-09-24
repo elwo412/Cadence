@@ -36,7 +36,6 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
       previewBlock,
       blocks,
       tasks,
-      onDeleteBlock,
       selectedBlockIds,
       handleBlockClick,
       onContextMenu,
@@ -176,28 +175,23 @@ export const TimeGrid = forwardRef<HTMLDivElement, TimeGridProps>(
 
               {blocks
                 .filter((b) => b.id !== activeBlock?.id)
-                .map((b) => {
+                .map((block) => {
+                  const task = tasks.find((t) => t.id === block.taskId);
                   const isOverlapping = blocks.some((other) =>
-                    overlaps(b, other)
+                    overlaps(block, other)
                   );
                   return (
                     <BlockCard
-                      key={b.id}
-                      block={b}
-                      task={tasks.find((t) => t.id === b.taskId)}
-                      onDelete={onDeleteBlock}
+                      key={block.id}
+                      block={block}
+                      task={task}
                       isOverlapping={isOverlapping}
-                      isSelected={selectedBlockIds.includes(b.id)}
-                      onClick={(e) => handleBlockClick(e, b.id)}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        onContextMenu({
-                          x: e.clientX,
-                          y: e.clientY,
-                          blockId: b.id,
-                        });
-                      }}
-                      onDoubleClick={() => onDoubleClickBlock(b.id)}
+                      isSelected={selectedBlockIds.includes(block.id)}
+                      onClick={(e) => handleBlockClick(e, block.id)}
+                      onContextMenu={(e) =>
+                        onContextMenu({ x: e.clientX, y: e.clientY, blockId: block.id })
+                      }
+                      onDoubleClick={() => onDoubleClickBlock(block.id)}
                       slotHeight={slotHeight}
                     />
                   );

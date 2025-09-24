@@ -9,14 +9,11 @@ import {
   pointerWithin,
   useSensor,
   useSensors,
-  closestCenter,
-  DragCancelEvent,
-  DragEndEvent,
 } from "@dnd-kit/core";
 import { todayISO } from "@/lib/utils";
 import { DayPeek } from "@/components/calendar/DayPeek";
 import { Task } from "./types";
-import { usePlanner } from "./state/planner";
+import usePlanner from "./state/planner";
 import { LeftNav } from "@/components/nav/LeftNav";
 import HomeDashboard from "@/pages/HomeDashboard";
 import CalendarPage from "@/pages/CalendarPage";
@@ -114,10 +111,10 @@ export default function AppShell() {
     }
   }
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = () => {
     setActiveDragTask(null);
     if (previewBlock && isOverRail) {
-      const { id, ...newBlock } = previewBlock;
+      const { id: _, ...newBlock } = previewBlock;
       addBlock(newBlock, todayISO());
     }
     setPreviewBlock(null);
@@ -125,7 +122,7 @@ export default function AppShell() {
     setIsOverRail(false);
   };
 
-  const handleDragCancel = (event: DragCancelEvent) => {
+  const handleDragCancel = () => {
     setActiveDragTask(null);
     setPreviewBlock(null);
     setIsHoveringMiniDayRail(false);

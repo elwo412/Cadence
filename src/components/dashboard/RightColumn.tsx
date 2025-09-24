@@ -1,4 +1,3 @@
-import React from "react";
 import { Header } from "./Header";
 import { TodosPane } from "./TodosPane";
 import { MiniDayRail } from "../calendar/MiniDayRail";

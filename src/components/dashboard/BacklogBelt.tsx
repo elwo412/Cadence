@@ -1,17 +1,17 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { getBacklogCandidates } from "@/features/tasks/selectors";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDraggable, useDndMonitor } from "@dnd-kit/core";
 import { Task } from "@/types";
 import { Checkbox } from "@/components/Checkbox";
 import { autoPlace } from "@/features/calendar/schedule";
-import { usePlanner } from "@/state/planner";
+import usePlanner from "../../state/planner";
 import { Pin } from "lucide-react";
 import { useHotkeys, useHotkeysContext } from "react-hotkeys-hook";
 import { cn } from "@/lib/utils";
 
 export function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: boolean, onToggleSelect: () => void; }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef } = useDraggable({
     id: `task-${task.id}`,
     data: {
       type: 'TASK',

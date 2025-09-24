@@ -4,7 +4,7 @@ import TaskRow from "./TaskRow";
 import { useDraggable } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";
 
-const DraggableTask = ({
+export const DraggableTaskRow = ({
   task,
   onToggle,
   inQueue,
@@ -64,7 +64,7 @@ export default function TaskListView({
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <DraggableTask
+            <DraggableTaskRow
               task={t}
               onToggle={onToggle}
               inQueue={inQueue}

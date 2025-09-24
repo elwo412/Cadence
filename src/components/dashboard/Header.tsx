@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { usePlanner } from '@/state/planner';
+import { useMemo } from 'react';
+import usePlanner from "@/state/planner";
 import { Block } from '@/types';
 import { getCurrentTime, minsToHHMM } from '@/lib/time';
 

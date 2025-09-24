@@ -1,7 +1,7 @@
-import { useDroppable, useDndMonitor } from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
-import { usePlanner } from "@/state/planner";
+import { useEffect, useRef } from "react";
+import usePlanner from "@/state/planner";
 import { DAY_END, DAY_START, SLOT_MIN, minsToHHMM } from "@/lib/time";
 import { Task } from "@/types";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,6 @@ function DroppableSlot({ absMin }: { absMin: number }) {
 }
 
 export function MiniDayRail() {
-  const [isDraggingTask, setIsDraggingTask] = useState(false);
   const tasks = usePlanner(s => s.tasks);
   const blocks = usePlanner(s => s.blocks);
   const previewBlock = usePlanner(s => s.previewBlock);
@@ -39,16 +38,6 @@ export function MiniDayRail() {
   const dayStartMin = DAY_START.split(":").map(Number).reduce((h, m) => h * 60 + m);
   const dayEndMin = DAY_END.split(":").map(Number).reduce((h, m) => h * 60 + m);
   const totalMinutes = dayEndMin - dayStartMin;
-
-  useDndMonitor({
-    onDragStart: (event) => {
-      if (event.active.data.current?.type === 'TASK') {
-        setIsDraggingTask(true);
-      }
-    },
-    onDragEnd: () => setIsDraggingTask(false),
-    onDragCancel: () => setIsDraggingTask(false),
-  });
 
   const now = new Date();
   const nowPx = ((now.getHours() * 60 + now.getMinutes()) - dayStartMin) * SLOT_PX;
@@ -61,7 +50,7 @@ export function MiniDayRail() {
         el.scrollTop = y;
       }
     });
-  }, []);
+  }, [nowPx]);
 
   const getTask = (id: string | null): Task | undefined => {
     if (!id) return undefined;

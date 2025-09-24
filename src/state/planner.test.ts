@@ -1,5 +1,5 @@
-import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { usePlanner } from './planner';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import usePlanner from './planner'; // Assuming usePlanner is the default export
 import { Task } from '../types';
 
 // Mock Tauri's invoke function
@@ -29,7 +29,7 @@ describe('planner store: toggleToday', () => {
   });
 
   it('should toggle isToday from false to true', () => {
-    const { toggleToday, tasks } = usePlanner.getState();
+    const { toggleToday } = usePlanner.getState();
     toggleToday('1');
 
     const updatedTask = usePlanner.getState().tasks.find(t => t.id === '1');
