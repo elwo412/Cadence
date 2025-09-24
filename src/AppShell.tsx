@@ -25,6 +25,7 @@ import NotesPage from "@/pages/NotesPage";
 import FocusPage from "@/pages/FocusPage";
 import InsightsPage from "@/pages/InsightsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import { Toaster } from "sonner";
 
 function TaskDragOverlay({ task }: { task: Task }) {
   return (
@@ -142,6 +143,7 @@ export default function AppShell() {
       collisionDetection={pointerWithin}
     >
       <div className="h-screen w-screen bg-black flex text-sm text-zinc-100 font-sans">
+        <Toaster theme="dark" />
         <LeftNav active={activeView} setActive={setActiveView} />
 
         <main className="flex-1 bg-zinc-900/80 overflow-auto min-h-0">

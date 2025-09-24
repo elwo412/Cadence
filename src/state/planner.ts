@@ -5,6 +5,7 @@ import { ParsedTask } from "../types/composer";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
 import { todayISO } from "@/lib/utils";
+import { toast } from "sonner";
 
 export type State = {
   tasks: Task[];
@@ -27,6 +28,7 @@ type Actions = {
   addWorkItem: (blockId: string, item: WorkItem) => void;
   saveBlocks: (date: string) => void;
   toggleTask: (id: string) => void;
+  toggleToday: (id: string) => void;
   toggleFocus: (id: string) => void;
   startFocusSession: () => void;
   clearFocusQueue: () => void;
@@ -78,7 +80,11 @@ const usePlanner = create<State & Actions>()(
           notes: null,
           project: null,
         };
-        await invoke("add_task", { task: newTask });
+
+        const { isToday, ...rest } = newTask;
+        const backendTask = { ...rest, is_today: isToday };
+
+        await invoke("add_task", { task: backendTask });
         set((state) => ({ tasks: [...state.tasks, newTask] }));
       },
       updateTask: async (id, updates) => {
@@ -86,7 +92,10 @@ const usePlanner = create<State & Actions>()(
         if (!originalTask) return;
         const updatedTask = { ...originalTask, ...updates };
 
-        await invoke("update_task", { task: updatedTask });
+        const { isToday, ...rest } = updatedTask;
+        const backendTask = { ...rest, is_today: isToday };
+
+        await invoke("update_task", { task: backendTask });
         set((state) => ({
           tasks: state.tasks.map((t) => (t.id === id ? updatedTask : t)),
         }));
@@ -151,6 +160,36 @@ const usePlanner = create<State & Actions>()(
         if (task) {
           get().updateTask(id, { done: !task.done });
         }
+      },
+      toggleToday: (id: string) => {
+        const tasks = get().tasks;
+        const task = tasks.find((t) => t.id === id);
+        if (!task) return;
+
+        const originalTask = { ...task };
+        const updatedTask = { ...task, isToday: !task.isToday };
+
+        // Optimistic update
+        set({ tasks: tasks.map((t) => (t.id === id ? updatedTask : t)) });
+
+        // Analytics placeholder
+        console.log(`Analytics event: task.pin_today.${updatedTask.isToday ? 'on' : 'off'}`);
+
+        toast.success(
+          updatedTask.isToday ? "Task added to Today" : "Task removed from Today",
+          {
+            action: {
+              label: "Undo",
+              onClick: () => {
+                set({ tasks: tasks.map((t) => (t.id === id ? originalTask : t)) });
+                get().updateTask(id, { isToday: originalTask.isToday });
+                 console.log(`Analytics event: task.pin_today.${originalTask.isToday ? 'on' : 'off'} (undo)`);
+              },
+            },
+          }
+        );
+
+        get().updateTask(id, { isToday: updatedTask.isToday });
       },
       toggleFocus: (id) => {
         set((state) => ({

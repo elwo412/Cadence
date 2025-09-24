@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { getBacklogCandidates } from "@/features/tasks/selectors";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDraggable, useDndMonitor } from "@dnd-kit/core";
@@ -6,27 +6,61 @@ import { Task } from "@/types";
 import { Checkbox } from "@/components/Checkbox";
 import { autoPlace } from "@/features/calendar/schedule";
 import { usePlanner } from "@/state/planner";
+import { Pin } from "lucide-react";
+import { useHotkeys } from "react-hotkeys-hook";
+import { cn } from "@/lib/utils";
 
 function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: boolean, onToggleSelect: () => void; }) {
-  const { attributes, listeners, setNodeRef } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `task-${task.id}`,
-    data: { 
+    data: {
       type: 'TASK',
       taskId: task.id,
       task: task,
     },
   });
+  const toggleToday = usePlanner(s => s.toggleToday);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const setCombinedRef = (node: HTMLDivElement) => {
+    cardRef.current = node;
+    setNodeRef(node);
+  };
+
+  useHotkeys('.', () => {
+    if (document.activeElement === cardRef.current) {
+      toggleToday(task.id);
+    }
+  }, { scopes: ['tasks'] });
+
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setCombinedRef}
+      tabIndex={0}
       {...listeners}
       {...attributes}
       className="flex-shrink-0 w-64 rounded-xl border border-white/10 bg-black/40 hover:bg-black/55 shadow-[0_6px_18px_rgba(0,0,0,0.35)] p-3 flex flex-col gap-2 relative cursor-grab"
     >
       <div className="flex items-start justify-between">
         <span className="text-zinc-200 text-sm">{task.title}</span>
-        <Checkbox id={task.id} checked={selected} onCheckedChange={onToggleSelect} />
+        <div className="flex items-center gap-2">
+           <button
+            onClick={() => toggleToday(task.id)}
+            title={task.isToday ? "Remove from Today" : "Add to Today"}
+            className="p-1 rounded-full hover:bg-white/10 transition-colors"
+           >
+            <Pin
+              size={14}
+              className={cn(
+                "transition-colors",
+                task.isToday ? "text-amber-400" : "text-zinc-500 hover:text-zinc-300"
+              )}
+              fill={task.isToday ? "currentColor" : "none"}
+            />
+          </button>
+          <Checkbox id={task.id} checked={selected} onCheckedChange={onToggleSelect} />
+        </div>
       </div>
       <div className="flex items-center gap-2 text-xs text-zinc-400">
         <span>~{task.est_minutes}m</span>
