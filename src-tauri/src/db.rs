@@ -70,6 +70,14 @@ fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
+    // Version 2: Add due date to tasks table
+    let mut stmt = conn.prepare("SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = 'due'")?;
+    let column_exists: i64 = stmt.query_row([], |row| row.get(0))?;
+
+    if column_exists == 0 {
+        conn.execute("ALTER TABLE tasks ADD COLUMN due TEXT", [])?;
+    }
+
     // Future migrations can be added here...
 
     Ok(())
