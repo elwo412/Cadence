@@ -4,6 +4,7 @@ export type Task = {
   id: string;
   title: string;
   done: boolean;
+  isToday: boolean;
   est_minutes: number; // minutes
   notes: string | null;
   project: string | null;

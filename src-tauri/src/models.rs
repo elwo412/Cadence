@@ -5,6 +5,7 @@ pub struct Task {
     pub id: String,
     pub title: String,
     pub done: bool,
+    pub is_today: bool,
     pub est_minutes: i32,
     pub notes: Option<String>,
     pub project: Option<String>,

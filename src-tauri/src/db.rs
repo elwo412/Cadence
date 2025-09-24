@@ -17,12 +17,20 @@ pub fn init_db(handle: &AppHandle) -> Result<Database, rusqlite::Error> {
 
     let conn = Connection::open(&db_path)?;
 
+    create_tables_if_not_exist(&conn)?;
+    run_migrations(&conn)?;
+
+    Ok(Database(Mutex::new(conn)))
+}
+
+fn create_tables_if_not_exist(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "
         CREATE TABLE IF NOT EXISTS tasks (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
             done INTEGER NOT NULL DEFAULT 0,
+            is_today INTEGER NOT NULL DEFAULT 0,
             est_minutes INTEGER,
             notes TEXT,
             project TEXT,
@@ -43,6 +51,26 @@ pub fn init_db(handle: &AppHandle) -> Result<Database, rusqlite::Error> {
         );
         ",
     )?;
+    Ok(())
+}
 
-    Ok(Database(Mutex::new(conn)))
+fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // --- Migrations ---
+    // Each migration should be idempotent (safe to run multiple times).
+
+    // Version 1: Add is_today to tasks table if it doesn't exist
+    // This is for users who have a database from before this column was added.
+    let mut stmt = conn.prepare("SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = 'is_today'")?;
+    let column_exists: i64 = stmt.query_row([], |row| row.get(0))?;
+
+    if column_exists == 0 {
+        conn.execute(
+            "ALTER TABLE tasks ADD COLUMN is_today INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+
+    // Future migrations can be added here...
+
+    Ok(())
 }

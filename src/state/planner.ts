@@ -45,8 +45,11 @@ const usePlanner = create<State & Actions>()(
       previewBlock: null,
       isHoveringMiniDayRail: false,
       fetchTasks: async () => {
-        // This will need updating when backend types change
-        const tasks = await invoke<Task[]>("get_tasks");
+        const backendTasks = await invoke<any[]>("get_tasks");
+        const tasks: Task[] = backendTasks.map(t => ({
+          ...t,
+          isToday: t.is_today,
+        }));
         set({ tasks });
       },
       fetchBlocks: async (date) => {
@@ -66,6 +69,7 @@ const usePlanner = create<State & Actions>()(
           id: uuidv4(),
           title: task.title,
           done: false,
+          isToday: false,
           tags: task.tags || [],
           priority: task.priority || 2,
           est_minutes: task.est || 25,
