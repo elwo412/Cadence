@@ -15,7 +15,7 @@ pub struct Task {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DayBlock {
     pub id: String,
-    pub task_id: Option<String>,
+    pub task_id: String,
     pub date: String, // YYYY-MM-DD
     pub start_slot: i32,
     pub end_slot: i32,
@@ -64,40 +64,4 @@ pub struct RefineSuggestion {
 pub struct RefineResponse {
     pub assistant_text: String,
     pub suggestions: Vec<RefineSuggestion>,
-}
-
-// --- For OpenAI API ---
-
-#[derive(Serialize, Debug)]
-pub struct OpenAIRequest<'a> {
-    pub model: &'a str,
-    pub messages: Vec<OpenAIMessage<'a>>,
-    pub response_format: ResponseFormat<'a>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct OpenAIMessage<'a> {
-    pub role: &'a str,
-    pub content: String,
-}
-
-#[derive(Serialize, Debug)]
-pub struct ResponseFormat<'a> {
-    #[serde(rename = "type")]
-    pub response_type: &'a str,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct OpenAIResponse {
-    pub choices: Vec<Choice>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Choice {
-    pub message: Message,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Message {
-    pub content: String,
 }

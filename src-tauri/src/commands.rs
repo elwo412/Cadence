@@ -207,11 +207,6 @@ pub fn update_setting(key: String, value: String, db: State<Database>) -> Result
     Ok(())
 }
 
-#[tauri::command]
-pub fn get_platform() -> String {
-    std::env::consts::OS.to_string()
-}
-
 #[derive(Serialize)]
 struct EnrichRequest {
     model: String,
