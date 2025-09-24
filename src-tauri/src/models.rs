@@ -10,6 +10,7 @@ pub struct Task {
     pub notes: Option<String>,
     pub project: Option<String>,
     pub tags: Option<Vec<String>>,
+    pub due: Option<String>, // YYYY-MM-DD
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -2,11 +2,14 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import usePlanner from "@/state/planner";
+import { exportTasksToMarkdown } from "@/lib/export";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   const [isPurgeConfirmOpen, setIsPurgeConfirmOpen] = useState(false);
-  const fetchTasks = usePlanner(s => s.fetchTasks);
-  const fetchBlocks = usePlanner(s => s.fetchBlocks);
+  const tasks = usePlanner((s) => s.tasks);
+  const fetchTasks = usePlanner((s) => s.fetchTasks);
+  const fetchBlocks = usePlanner((s) => s.fetchBlocks);
 
   const handlePurge = async () => {
     try {
@@ -20,12 +23,26 @@ export default function SettingsPage() {
     }
   };
 
+  const handleExport = () => {
+    const markdown = exportTasksToMarkdown(tasks);
+    navigator.clipboard.writeText(markdown);
+    toast.success("Tasks copied to clipboard!");
+  };
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold text-zinc-100">Settings</h1>
 
       <div className="mt-8 border-t border-zinc-800 pt-8">
-        {/* You can add other settings here in the future */}
+        <h2 className="text-lg font-semibold text-zinc-200">Data</h2>
+        <div className="mt-4">
+          <button
+            onClick={handleExport}
+            className="px-3 py-1.5 rounded-lg bg-white/10 text-zinc-200 text-sm font-medium hover:bg-white/20 transition-colors"
+          >
+            Export Tasks to Markdown
+          </button>
+        </div>
       </div>
 
       {/* Danger Zone */}

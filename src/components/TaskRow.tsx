@@ -1,9 +1,12 @@
-import { Target } from "lucide-react";
+import { Calendar, Target } from "lucide-react";
 import React from "react";
 import { Task } from "../types";
-import Chip from "./Chip";
+import { Chip } from "./Chip";
 import { Checkbox } from "./Checkbox";
 import { useDraggable } from "@dnd-kit/core";
+import { DatePicker } from "./DatePicker";
+import { format, parseISO } from "date-fns";
+import usePlanner from "../state/planner";
 
 type TaskRowProps = {
   task: Task;
@@ -45,6 +48,12 @@ const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
       setNodeRef(node);
     };
 
+    const { updateTask } = usePlanner();
+
+    const handleDueDateChange = (date: Date | null) => {
+      updateTask(task.id, { due: date ? format(date, "yyyy-MM-dd") : null });
+    };
+
     return (
       <div
         ref={setRefs}
@@ -73,6 +82,15 @@ const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
             ~{task.est_minutes}m
           </span>
         )}
+        <DatePicker
+          value={task.due ? parseISO(task.due) : null}
+          onChange={handleDueDateChange}
+        >
+          <button className="flex items-center gap-1.5 text-xs text-zinc-400 border border-transparent rounded-md px-1.5 py-0.5 hover:border-white/10">
+            <Calendar size={14} />
+            {task.due ? format(parseISO(task.due), "MMM d") : "Set due"}
+          </button>
+        </DatePicker>
         <div className="hidden md:flex gap-1">
           {(task.tags || []).slice(0, 3).map((tag) => (
             <Chip key={tag} label={tag} />
