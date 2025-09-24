@@ -1,6 +1,5 @@
 use crate::db::Database;
 use crate::models::{DayBlock, EnrichResponse, PlanWithAIResponse, RefineResponse, Task};
-use reqwest;
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::State;
