@@ -9,7 +9,7 @@ export function RightColumn() {
     <div className="p-6 flex flex-col gap-6 h-full relative min-w-0">
       <Header />
       <div className="grid grid-cols-[1fr_auto] gap-6 flex-1 min-h-0">
-        <TodosPane />
+        <TodosPane dateISO={todayISO()} />
         <MiniDayRail />
       </div>
       <BacklogBelt dateISO={todayISO()} />
