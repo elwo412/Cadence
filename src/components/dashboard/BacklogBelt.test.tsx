@@ -1,7 +1,8 @@
 import { render } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, type Mock } from 'vitest';
 import { BacklogBelt, TaskCard } from './BacklogBelt';
 import { Task } from '../../types';
+import usePlanner from '../../state/planner';
 
 vi.mock('../../state/planner');
 vi.mock('@dnd-kit/core', () => ({
@@ -29,7 +30,7 @@ describe('BacklogBelt', () => {
 describe('TaskCard', () => {
   it('toggles pin state on click', () => {
     const mockToggleToday = vi.fn();
-    vi.mocked(require('../../state/planner')).default.mockReturnValue({
+    (usePlanner as Mock).mockReturnValue({
       toggleToday: mockToggleToday,
     });
 
