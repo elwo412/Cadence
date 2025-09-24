@@ -19,16 +19,11 @@ export const useTodayTaskIdSet = (dateISO: string) => {
 };
 
 export const getBacklogCandidates = (tasks: Task[], blocks: Block[], dateISO: string): Task[] => {
-    const today = new Set<string>();
+    const todayTaskIds = new Set(selectTodayTasks(tasks, blocks, dateISO).map(t => t.id));
+
     const res: Task[] = [];
-    // derive scheduled ids
-    for (const b of blocks) {
-      if (!isSameDayISO(b.dateISO, dateISO)) continue;
-      if (b.kind === "atomic" && b.taskId) today.add(b.taskId);
-      if (b.kind === "work") for (const it of b.items ?? []) today.add(it.taskId);
-    }
     // pick unscheduled & not done
-    for (const t of tasks) if (!t.done && !today.has(t.id)) res.push(t);
+    for (const t of tasks) if (!t.done && !todayTaskIds.has(t.id)) res.push(t);
 
     // score: due soon > high priority > micro > recent
     const score = (t: Task) =>

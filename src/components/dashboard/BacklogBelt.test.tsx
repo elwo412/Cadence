@@ -4,6 +4,7 @@ import { BacklogBelt, TaskCard } from './BacklogBelt';
 import { Task } from '../../types';
 import usePlanner from '../../state/planner';
 import { HotkeysProvider } from 'react-hotkeys-hook';
+import { screen, fireEvent } from '@testing-library/react';
 
 vi.mock('../../state/planner');
 vi.mock('@dnd-kit/core', () => ({
@@ -18,8 +19,8 @@ vi.mock('@dnd-kit/core', () => ({
 }));
 
 const mockTasks: Task[] = [
-  { id: '1', title: 'Test Task 1', done: false, isToday: true, est_minutes: 25, project: null, tags: [], notes: null, createdAt: '', due: null, priority: 1 },
-  { id: '2', title: 'Test Task 2', done: false, isToday: false, est_minutes: 25, project: null, tags: [], notes: null, createdAt: '', due: null, priority: 1 },
+  { id: '1', title: 'Test Task 1 (isToday)', done: false, isToday: true, est_minutes: 25, project: null, tags: [], notes: null, createdAt: '', due: null, priority: 1 },
+  { id: '2', title: 'Test Task 2 (backlog)', done: false, isToday: false, est_minutes: 25, project: null, tags: [], notes: null, createdAt: '', due: null, priority: 1 },
 ];
 
 const mockPlannerState = {
@@ -33,9 +34,17 @@ describe('BacklogBelt', () => {
     (usePlanner as Mock).mockImplementation((selector) => selector(mockPlannerState));
   });
 
-  it('renders tasks', () => {
+  it('filters out tasks that are part of "Today"', async () => {
     render(<BacklogBelt dateISO="2025-09-24" />);
-    // This is a placeholder test. In a real scenario, you'd check if tasks are rendered.
+    
+    // The belt is collapsed by default, so we need to trigger the expanded view
+    fireEvent.mouseEnter(screen.getByRole('complementary', { name: 'Backlog belt' }));
+
+    // Task 1 is `isToday`, so it should be filtered out
+    expect(screen.queryByText('Test Task 1 (isToday)')).not.toBeInTheDocument();
+    
+    // Task 2 is a regular backlog item, so it should be visible
+    expect(screen.getByText('Test Task 2 (backlog)')).toBeInTheDocument();
   });
 });
 
