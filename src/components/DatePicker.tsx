@@ -15,6 +15,158 @@ import { ChevronLeft, ChevronRight, Dot } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+function DatePickerPanel({
+  open,
+  close,
+  buttonRef,
+  value,
+  onChange,
+  currentMonth,
+  nextMonth,
+  prevMonth,
+  dates,
+}: {
+  open: boolean;
+  close: () => void;
+  buttonRef: React.RefObject<any>;
+  value: Date | null;
+  onChange: (date: Date | null) => void;
+  currentMonth: Date;
+  nextMonth: () => void;
+  prevMonth: () => void;
+  dates: Date[];
+}) {
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPopoverStyle({
+        position: "absolute",
+        top: `${rect.bottom + 8}px`,
+        left: `${rect.left}px`,
+        zIndex: 10,
+      });
+    }
+  }, [open, buttonRef]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        close();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, close]);
+
+  const handleChange = (date: Date | null) => {
+    onChange(date);
+    close();
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <Portal>
+          <Popover.Panel
+            static
+            as={motion.div}
+            style={popoverStyle}
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="w-72 rounded-lg bg-zinc-800 border border-white/10 shadow-lg focus:outline-none"
+          >
+            <div className="flex gap-2 p-2 border-b border-white/10">
+              <button
+                onClick={() => handleChange(new Date())}
+                className="rounded bg-white/10 text-[10px] text-zinc-300 px-1.5 py-0.5 hover:bg-white/20"
+              >
+                Today
+              </button>
+              <button
+                onClick={() => handleChange(addDays(new Date(), 1))}
+                className="rounded bg-white/10 text-[10px] text-zinc-300 px-1.5 py-0.5 hover:bg-white/20"
+              >
+                Tomorrow
+              </button>
+              <button
+                onClick={() => handleChange(nextMonday(new Date()))}
+                className="rounded bg-white/10 text-[10px] text-zinc-300 px-1.5 py-0.5 hover:bg-white/20"
+              >
+                Next Monday
+              </button>
+              <button
+                onClick={() => handleChange(null)}
+                className="rounded bg-white/10 text-[10px] text-zinc-300 px-1.5 py-0.5 hover:bg-white/20"
+              >
+                Clear
+              </button>
+            </div>
+            <div className="p-2">
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  onClick={prevMonth}
+                  className="p-1 rounded-full hover:bg-white/10"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="text-sm font-medium">
+                  {format(currentMonth, "MMMM yyyy")}
+                </div>
+                <button
+                  onClick={nextMonth}
+                  className="p-1 rounded-full hover:bg-white/10"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <div className="grid grid-cols-7 gap-1 text-xs text-center">
+                {["S", "M", "T", "W", "T", "F", "S"].map((day, i) => (
+                  <div key={i} className="font-medium text-zinc-400">
+                    {day}
+                  </div>
+                ))}
+                {dates.map((date) => (
+                  <button
+                    key={date.toISOString()}
+                    onClick={() => handleChange(date)}
+                    className={`
+                      relative flex items-center justify-center h-8 w-8 rounded-full hover:bg-white/10
+                      ${
+                        value && isSameDay(date, value)
+                          ? "bg-blue-500 text-white"
+                          : ""
+                      }
+                      ${
+                        (!value || !isSameDay(date, value)) && isToday(date)
+                          ? "text-blue-400"
+                          : ""
+                      }
+                      ${
+                        date.getMonth() !== currentMonth.getMonth()
+                          ? "text-zinc-500"
+                          : ""
+                      }
+                    `}
+                  >
+                    {format(date, "d")}
+                    {isToday(date) && (
+                      <Dot className="absolute bottom-0.5" size={16} />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Popover.Panel>
+        </Portal>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export function DatePicker({
   value,
   onChange,
@@ -24,10 +176,8 @@ export function DatePicker({
   onChange: (date: Date | null) => void;
   children: React.ReactNode;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const buttonRef = useRef<HTMLDivElement>(null);
-  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
+  const [currentMonth, setCurrentMonth] = useState(value || new Date());
+  const buttonRef = useRef<any>(null);
 
   useHotkeys("d", () => buttonRef.current?.click(), {
     preventDefault: true,
@@ -55,155 +205,26 @@ export function DatePicker({
     );
   };
 
-  const QuickChips = () => (
-    <div className="flex gap-2 p-2 border-b border-white/10">
-      <Chip onClick={() => onChange(new Date())}>Today</Chip>
-      <Chip onClick={() => onChange(addDays(new Date(), 1))}>Tomorrow</Chip>
-      <Chip onClick={() => onChange(nextMonday(new Date()))}>Next Monday</Chip>
-      <Chip onClick={() => onChange(null)}>Clear</Chip>
-    </div>
-  );
-
   return (
     <Popover>
-      {({ open, close }) => {
-        useEffect(() => {
-          if (open && buttonRef.current) {
-            const rect = buttonRef.current.getBoundingClientRect();
-            setPopoverStyle({
-              position: "absolute",
-              top: `${rect.bottom + 8}px`,
-              left: `${rect.left}px`,
-            });
-          }
-        }, [open]);
-
-        const handleChange = (date: Date | null) => {
-          onChange(date);
-          close();
-        };
-
-        useEffect(() => {
-          if (!open) return;
-          const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-              close();
-            }
-          };
-          window.addEventListener("keydown", handleKeyDown);
-          return () => window.removeEventListener("keydown", handleKeyDown);
-        }, [open, close]);
-
-        return (
-          <>
-            <Popover.Button
-              ref={buttonRef}
-              as="div"
-              className="focus:outline-none"
-            >
-              {children}
-            </Popover.Button>
-            <AnimatePresence>
-              {open && (
-                <Portal>
-                  <Popover.Panel
-                    static
-                    as={motion.div}
-                    style={popoverStyle}
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="z-10 w-72 rounded-lg bg-zinc-800 border border-white/10 shadow-lg focus:outline-none"
-                  >
-                    <div className="flex gap-2 p-2 border-b border-white/10">
-                      <button
-                        onClick={() => handleChange(new Date())}
-                        className="rounded bg-white/10 text-[10px] text-zinc-300 px-1.5 py-0.5 hover:bg-white/20"
-                      >
-                        Today
-                      </button>
-                      <button
-                        onClick={() => handleChange(addDays(new Date(), 1))}
-                        className="rounded bg-white/10 text-[10px] text-zinc-300 px-1.5 py-0.5 hover:bg-white/20"
-                      >
-                        Tomorrow
-                      </button>
-                      <button
-                        onClick={() => handleChange(nextMonday(new Date()))}
-                        className="rounded bg-white/10 text-[10px] text-zinc-300 px-1.5 py-0.5 hover:bg-white/20"
-                      >
-                        Next Monday
-                      </button>
-                      <button
-                        onClick={() => handleChange(null)}
-                        className="rounded bg-white/10 text-[10px] text-zinc-300 px-1.5 py-0.5 hover:bg-white/20"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                    <div className="p-2">
-                      <div className="flex items-center justify-between mb-2">
-                        <button
-                          onClick={prevMonth}
-                          className="p-1 rounded-full hover:bg-white/10"
-                        >
-                          <ChevronLeft size={16} />
-                        </button>
-                        <div className="text-sm font-medium">
-                          {format(currentMonth, "MMMM yyyy")}
-                        </div>
-                        <button
-                          onClick={nextMonth}
-                          className="p-1 rounded-full hover:bg-white/10"
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-7 gap-1 text-xs text-center">
-                        {["S", "M", "T", "W", "T", "F", "S"].map((day, i) => (
-                          <div key={i} className="font-medium text-zinc-400">
-                            {day}
-                          </div>
-                        ))}
-                        {dates.map((date) => (
-                          <button
-                            key={date.toISOString()}
-                            onClick={() => handleChange(date)}
-                            className={`
-                              relative flex items-center justify-center h-8 w-8 rounded-full hover:bg-white/10
-                              ${
-                                isSameDay(date, value || new Date()) &&
-                                "bg-blue-500 text-white"
-                              }
-                              ${
-                                !isSameDay(date, value || new Date()) &&
-                                isToday(date) &&
-                                "text-blue-400"
-                              }
-                              ${
-                                date.getMonth() !== currentMonth.getMonth() &&
-                                "text-zinc-500"
-                              }
-                            `}
-                          >
-                            {format(date, "d")}
-                            {isToday(date) && (
-                              <Dot
-                                className="absolute bottom-0.5"
-                                size={16}
-                              />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </Popover.Panel>
-                </Portal>
-              )}
-            </AnimatePresence>
-          </>
-        );
-      }}
+      {({ open, close }) => (
+        <>
+          <Popover.Button as="div" ref={buttonRef} className="focus:outline-none">
+            {children}
+          </Popover.Button>
+          <DatePickerPanel
+            open={open}
+            close={close}
+            buttonRef={buttonRef}
+            value={value}
+            onChange={onChange}
+            currentMonth={currentMonth}
+            nextMonth={nextMonth}
+            prevMonth={prevMonth}
+            dates={dates}
+          />
+        </>
+      )}
     </Popover>
   );
 }
