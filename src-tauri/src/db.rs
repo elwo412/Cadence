@@ -23,6 +23,7 @@ pub fn init_db(handle: &AppHandle) -> Result<Database, rusqlite::Error> {
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
             done INTEGER NOT NULL DEFAULT 0,
+            is_today INTEGER NOT NULL DEFAULT 0,
             est_minutes INTEGER,
             notes TEXT,
             project TEXT,
@@ -44,5 +45,32 @@ pub fn init_db(handle: &AppHandle) -> Result<Database, rusqlite::Error> {
         ",
     )?;
 
+    run_migrations(&conn)?;
+
     Ok(Database(Mutex::new(conn)))
+}
+
+fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Migration: Add is_today to tasks if it doesn't exist
+    let mut stmt = conn.prepare("PRAGMA table_info(tasks)")?;
+    let mut has_is_today = false;
+    let column_names = stmt.column_names();
+    if column_names.iter().any(|&name| name == "name") {
+        let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
+        for name in rows {
+            if name.unwrap() == "is_today" {
+                has_is_today = true;
+                break;
+            }
+        }
+    }
+
+    if !has_is_today {
+        conn.execute(
+            "ALTER TABLE tasks ADD COLUMN is_today INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+
+    Ok(())
 }

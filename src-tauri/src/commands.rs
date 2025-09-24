@@ -52,9 +52,9 @@ impl<'a> From<&'a str> for CommandError {
 pub fn get_tasks(db: State<Database>) -> Result<Vec<Task>, CommandError> {
     let conn = db.0.lock().unwrap();
     let mut stmt =
-        conn.prepare("SELECT id, title, done, est_minutes, notes, project, tags FROM tasks")?;
+        conn.prepare("SELECT id, title, done, is_today, est_minutes, notes, project, tags FROM tasks")?;
     let task_iter = stmt.query_map(params![], |row| {
-        let tags_json: Option<String> = row.get(6)?;
+        let tags_json: Option<String> = row.get(7)?;
         let tags: Option<Vec<String>> = match tags_json {
             Some(json) if !json.is_empty() => match serde_json::from_str(&json) {
                 Ok(tags) => Some(tags),
@@ -67,9 +67,10 @@ pub fn get_tasks(db: State<Database>) -> Result<Vec<Task>, CommandError> {
             id: row.get(0)?,
             title: row.get(1)?,
             done: row.get(2)?,
-            est_minutes: row.get(3)?,
-            notes: row.get(4)?,
-            project: row.get(5)?,
+            is_today: row.get(3)?,
+            est_minutes: row.get(4)?,
+            notes: row.get(5)?,
+            project: row.get(6)?,
             tags,
         })
     })?;
@@ -87,11 +88,12 @@ pub fn add_task(task: Task, db: State<Database>) -> Result<(), CommandError> {
     let conn = db.0.lock().unwrap();
     let tags_json = serde_json::to_string(&task.tags)?;
     conn.execute(
-        "INSERT INTO tasks (id, title, done, est_minutes, notes, project, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO tasks (id, title, done, is_today, est_minutes, notes, project, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
             task.id,
             task.title,
             task.done,
+            task.is_today,
             task.est_minutes,
             task.notes,
             task.project,
@@ -106,11 +108,12 @@ pub fn update_task(task: Task, db: State<Database>) -> Result<(), CommandError> 
     let conn = db.0.lock().unwrap();
     let tags_json = serde_json::to_string(&task.tags)?;
     conn.execute(
-        "UPDATE tasks SET title = ?2, done = ?3, est_minutes = ?4, notes = ?5, project = ?6, tags = ?7 WHERE id = ?1",
+        "UPDATE tasks SET title = ?2, done = ?3, is_today = ?4, est_minutes = ?5, notes = ?6, project = ?7, tags = ?8 WHERE id = ?1",
         params![
             task.id,
             task.title,
             task.done,
+            task.is_today,
             task.est_minutes,
             task.notes,
             task.project,
