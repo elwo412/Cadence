@@ -20,15 +20,15 @@ function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: bo
     },
   });
   const toggleToday = usePlanner(s => s.toggleToday);
-  const cardRef = useRef<HTMLDivElement>(null);
+  let cardRef: HTMLDivElement | null = null;
 
   const setCombinedRef = (node: HTMLDivElement) => {
-    cardRef.current = node;
+    cardRef = node;
     setNodeRef(node);
   };
 
   useHotkeys('.', () => {
-    if (document.activeElement === cardRef.current) {
+    if (document.activeElement === cardRef) {
       toggleToday(task.id);
     }
   }, { scopes: ['tasks'] });
@@ -37,7 +37,6 @@ function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: bo
   return (
     <div
       ref={setCombinedRef}
-      tabIndex={0}
       {...listeners}
       {...attributes}
       className="flex-shrink-0 w-64 rounded-xl border border-white/10 bg-black/40 hover:bg-black/55 shadow-[0_6px_18px_rgba(0,0,0,0.35)] p-3 flex flex-col gap-2 relative cursor-grab"
