@@ -3,7 +3,6 @@ import { selectTodayTaskIds } from './selectors';
 import { Task, Block } from '@/types';
 
 const TODAY_ISO = '2025-09-24';
-const YESTERDAY_ISO = '2025-09-23';
 const TOMORROW_ISO = '2025-09-25';
 
 const mockTasks: Omit<Task, 'est_minutes' | 'notes' | 'project' | 'tags' | 'priority' | 'createdAt'>[] = [
