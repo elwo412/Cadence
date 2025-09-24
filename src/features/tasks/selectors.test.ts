@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectTodayTaskIds } from './selectors';
+import { selectTodayTasks } from './selectors';
 import { Task, Block } from '@/types';
 
 const TODAY_ISO = '2025-09-24';
@@ -23,7 +23,7 @@ const mockBlocks: Omit<Block, 'startMin' | 'lengthMin'>[] = [
     { id: 'b4', taskId: '7', dateISO: TOMORROW_ISO, kind: 'atomic' },
 ];
 
-describe('selectTodayTaskIds', () => {
+describe('selectTodayTasks', () => {
     // Fill in default properties for mock tasks
     const fullMockTasks: Task[] = mockTasks.map(t => ({
         ...t,
@@ -41,43 +41,54 @@ describe('selectTodayTaskIds', () => {
         lengthMin: 30,
     }))
 
-    it('should include scheduled, pinned, and due tasks for today', () => {
-        const result = selectTodayTaskIds(fullMockTasks, fullMockBlocks, TODAY_ISO);
-        // Expect '1' (scheduled), '2' (pinned), '3' (due), '5' (scheduled and pinned)
-        expect(result).toEqual(['1', '2', '3', '5']); // Sorted
+    it('should include scheduled, pinned, and due tasks for today with correct origins', () => {
+        const result = selectTodayTasks(fullMockTasks, fullMockBlocks, TODAY_ISO);
+        const resultMap = new Map(result.map(i => [i.id, i.origins]));
+
+        expect(resultMap.get('1')).toEqual(['scheduled']);
+        expect(resultMap.get('2')).toEqual(['pinned']);
+        expect(resultMap.get('3')).toEqual(['due']);
+        // The exact order of origins for '5' doesn't matter, so we sort them for a stable comparison.
+        expect(resultMap.get('5')?.sort()).toEqual(['pinned', 'scheduled']);
+        expect(result.length).toBe(4);
     });
 
     it('should not include done tasks', () => {
-        const result = selectTodayTaskIds(fullMockTasks, fullMockBlocks, TODAY_ISO);
-        expect(result).not.toContain('4'); // done scheduled
-        expect(result).not.toContain('8'); // done pinned
+        const result = selectTodayTasks(fullMockTasks, fullMockBlocks, TODAY_ISO);
+        const ids = result.map(t => t.id);
+        expect(ids).not.toContain('4'); // done scheduled
+        expect(ids).not.toContain('8'); // done pinned
     });
 
     it('should not include tasks from other days', () => {
-        const result = selectTodayTaskIds(fullMockTasks, fullMockBlocks, TODAY_ISO);
-        expect(result).not.toContain('6'); // due yesterday
-        expect(result).not.toContain('7'); // scheduled for tomorrow
+        const result = selectTodayTasks(fullMockTasks, fullMockBlocks, TODAY_ISO);
+        const ids = result.map(t => t.id);
+        expect(ids).not.toContain('6'); // due yesterday
+        expect(ids).not.toContain('7'); // scheduled for tomorrow
     });
 
-    it('should return a de-duplicated and sorted list of task IDs', () => {
-        const tasks: Task[] = [{ id: '1', title: 'A', done: false, isToday: true, due: TODAY_ISO, est_minutes: 30, notes: null, project: null, tags: [], priority: 2, createdAt: '' }];
+    it('should return a de-duplicated list of tasks with combined origins', () => {
+        const tasks: Task[] = [{ id: '1', title: 'A', done: false, isToday: true, due: '2025-09-24T12:00:00Z', est_minutes: 30, notes: null, project: null, tags: [], priority: 2, createdAt: '' }];
         const blocks: Block[] = [{ id: 'b1', taskId: '1', dateISO: TODAY_ISO, kind: 'atomic', startMin: 0, lengthMin: 30 }];
-        const result = selectTodayTaskIds(tasks, blocks, TODAY_ISO);
-        expect(result).toEqual(['1']);
+        const result = selectTodayTasks(tasks, blocks, TODAY_ISO);
+        expect(result.length).toBe(1);
+        // The exact order of origins doesn't matter, so we sort them for a stable comparison.
+        expect(result[0].origins.sort()).toEqual(['due', 'pinned', 'scheduled']);
     });
     
-    it('should return a sorted array of task IDs', () => {
+    it('should return a sorted array of task objects based on ID', () => {
         const tasks: Task[] = [
             { id: 'c', title: 'C', done: false, isToday: true, due: null, est_minutes: 30, notes: null, project: null, tags: [], priority: 2, createdAt: '' },
             { id: 'a', title: 'A', done: false, isToday: true, due: null, est_minutes: 30, notes: null, project: null, tags: [], priority: 2, createdAt: '' },
             { id: 'b', title: 'B', done: false, isToday: true, due: null, est_minutes: 30, notes: null, project: null, tags: [], priority: 2, createdAt: '' },
         ];
-        const result = selectTodayTaskIds(tasks, [], TODAY_ISO);
-        expect(result).toEqual(['a', 'b', 'c']);
+        const result = selectTodayTasks(tasks, [], TODAY_ISO);
+        const ids = result.map(t => t.id);
+        expect(ids).toEqual(['a', 'b', 'c']);
     });
 
     it('should handle empty tasks and blocks', () => {
-        const result = selectTodayTaskIds([], [], TODAY_ISO);
+        const result = selectTodayTasks([], [], TODAY_ISO);
         expect(result).toEqual([]);
     });
 
@@ -86,7 +97,8 @@ describe('selectTodayTaskIds', () => {
         const dateAtEndOfDay = '2025-09-24T23:59:59.999Z';
         const tasks: Task[] = [{ id: '1', title: 'A', done: false, isToday: false, due: dateAtEndOfDay, est_minutes: 30, notes: null, project: null, tags: [], priority: 2, createdAt: '' }];
         
-        const result = selectTodayTaskIds(tasks, [], dateAtStartOfDay);
-        expect(result).toEqual(['1']);
+        const result = selectTodayTasks(tasks, [], dateAtStartOfDay);
+        const ids = result.map(t => t.id);
+        expect(ids).toEqual(['1']);
     });
 });

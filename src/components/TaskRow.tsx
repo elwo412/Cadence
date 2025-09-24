@@ -7,6 +7,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { DatePicker } from "./DatePicker";
 import { format, parseISO } from "date-fns";
 import usePlanner from "../state/planner";
+import { TaskOrigin } from "@/features/tasks/selectors";
 
 type TaskRowProps = {
   task: Task;
@@ -15,6 +16,7 @@ type TaskRowProps = {
   onToggleFocus?: (id: string) => void;
   interactive?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
+  origins?: TaskOrigin[];
 };
 
 const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
@@ -26,6 +28,7 @@ const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
       onToggleFocus,
       interactive = true,
       onContextMenu,
+      origins,
       ...props
     },
     ref
@@ -76,6 +79,11 @@ const TaskRow = React.forwardRef<HTMLDivElement, TaskRowProps>(
           }`}
         >
           {task.title}
+        </div>
+        <div className="flex items-center gap-1">
+          {origins?.map((origin) => (
+            <Chip key={origin} label={origin} />
+          ))}
         </div>
         {task.est_minutes > 0 && (
           <span className="text-[11px] text-zinc-400 border border-white/10 rounded-md px-1.5 py-0.5">

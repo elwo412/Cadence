@@ -3,6 +3,8 @@ import usePlanner, { type State } from "@/state/planner";
 import { isSameDayISO } from "@/lib/time";
 import { Block, Task } from "@/types";
 
+export type TaskOrigin = "scheduled" | "pinned" | "due";
+
 export const useTodayTaskIdSet = (dateISO: string) => {
   const blocks = usePlanner((s: State) => s.blocks);
   return useMemo(() => {
@@ -42,12 +44,19 @@ export const getBacklogCandidates = (tasks: Task[], blocks: Block[], dateISO: st
     });
 }
 
-export const selectTodayTaskIds = (
+export const selectTodayTasks = (
   tasks: Task[],
   blocks: Block[],
   dateISO: string
-): string[] => {
-  const ids = new Set<string>();
+): { id: string; origins: TaskOrigin[] }[] => {
+  const todayTasks = new Map<string, Set<TaskOrigin>>();
+
+  const getOrigins = (taskId: string): Set<TaskOrigin> => {
+    if (!todayTasks.has(taskId)) {
+      todayTasks.set(taskId, new Set());
+    }
+    return todayTasks.get(taskId)!;
+  };
 
   const taskMap = new Map<string, Task>();
   tasks.forEach((t) => taskMap.set(t.id, t));
@@ -57,11 +66,11 @@ export const selectTodayTaskIds = (
     if (b.dateISO === dateISO) {
       if (b.kind === "atomic" && b.taskId) {
         const task = taskMap.get(b.taskId);
-        if (task && !task.done) ids.add(b.taskId);
+        if (task && !task.done) getOrigins(b.taskId).add("scheduled");
       } else if (b.kind === "work") {
         for (const it of b.items ?? []) {
           const task = taskMap.get(it.taskId);
-          if (task && !task.done) ids.add(it.taskId);
+          if (task && !task.done) getOrigins(it.taskId).add("scheduled");
         }
       }
     }
@@ -71,17 +80,22 @@ export const selectTodayTaskIds = (
   for (const t of tasks) {
     if (t.done) continue;
     if (t.isToday) {
-      ids.add(t.id);
+      getOrigins(t.id).add("pinned");
     }
     if (t.due && isSameDayISO(t.due, dateISO)) {
-      ids.add(t.id);
+      getOrigins(t.id).add("due");
     }
   }
 
-  return Array.from(ids).sort();
+  const result = Array.from(todayTasks.entries()).map(([id, origins]) => ({
+    id,
+    origins: Array.from(origins),
+  }));
+
+  return result.sort((a, b) => a.id.localeCompare(b.id));
 };
 
-export const useTodayTasks = (dateISO: string): Task[] => {
+export const useTodayTasks = (dateISO: string): (Task & { origins: TaskOrigin[] })[] => {
   const tasks = usePlanner((s: State) => s.tasks);
   const blocks = usePlanner((s: State) => s.blocks);
 
@@ -91,13 +105,19 @@ export const useTodayTasks = (dateISO: string): Task[] => {
     return map;
   }, [tasks]);
 
-  const todayTaskIds = useMemo(
-    () => selectTodayTaskIds(tasks, blocks, dateISO),
+  const todayTasks = useMemo(
+    () => selectTodayTasks(tasks, blocks, dateISO),
     [tasks, blocks, dateISO]
   );
 
   return useMemo(
-    () => todayTaskIds.map((id) => taskMap.get(id)!).filter(Boolean),
-    [todayTaskIds, taskMap]
+    () =>
+      todayTasks
+        .map(({ id, origins }) => {
+          const task = taskMap.get(id);
+          return task ? { ...task, origins } : null;
+        })
+        .filter(Boolean) as (Task & { origins: TaskOrigin[] })[],
+    [todayTasks, taskMap]
   );
 };
