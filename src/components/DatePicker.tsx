@@ -1,4 +1,4 @@
-import { Popover, Portal } from "@headlessui/react";
+import { Popover, Portal, PopoverButton, PopoverPanel } from "@headlessui/react";
 import {
   addDays,
   endOfMonth,
@@ -12,7 +12,13 @@ import {
 } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Dot } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  cloneElement,
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 function DatePickerPanel({
@@ -28,7 +34,7 @@ function DatePickerPanel({
 }: {
   open: boolean;
   close: () => void;
-  buttonRef: React.RefObject<any>;
+  buttonRef: React.RefObject<HTMLButtonElement>;
   value: Date | null;
   onChange: (date: Date | null) => void;
   currentMonth: Date;
@@ -70,7 +76,7 @@ function DatePickerPanel({
     <AnimatePresence>
       {open && (
         <Portal>
-          <Popover.Panel
+          <PopoverPanel
             static
             as={motion.div}
             style={popoverStyle}
@@ -160,7 +166,7 @@ function DatePickerPanel({
                 ))}
               </div>
             </div>
-          </Popover.Panel>
+          </PopoverPanel>
         </Portal>
       )}
     </AnimatePresence>
@@ -174,10 +180,10 @@ export function DatePicker({
 }: {
   value: Date | null;
   onChange: (date: Date | null) => void;
-  children: React.ReactNode;
+  children: React.ReactElement;
 }) {
   const [currentMonth, setCurrentMonth] = useState(value || new Date());
-  const buttonRef = useRef<any>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useHotkeys("d", () => buttonRef.current?.click(), {
     preventDefault: true,
@@ -209,9 +215,9 @@ export function DatePicker({
     <Popover>
       {({ open, close }) => (
         <>
-          <Popover.Button as="div" ref={buttonRef} className="focus:outline-none">
-            {children}
-          </Popover.Button>
+          <PopoverButton as={Fragment}>
+            {cloneElement(children, { ref: buttonRef })}
+          </PopoverButton>
           <DatePickerPanel
             open={open}
             close={close}
