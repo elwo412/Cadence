@@ -10,7 +10,7 @@ import { Pin } from "lucide-react";
 import { useHotkeys, useHotkeysContext } from "react-hotkeys-hook";
 import { cn } from "@/lib/utils";
 
-function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: boolean, onToggleSelect: () => void; }) {
+export function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: boolean, onToggleSelect: () => void; }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `task-${task.id}`,
     data: {
