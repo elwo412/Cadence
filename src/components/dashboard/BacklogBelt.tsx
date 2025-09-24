@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/Checkbox";
 import { autoPlace } from "@/features/calendar/schedule";
 import { usePlanner } from "@/state/planner";
 import { Pin } from "lucide-react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useHotkeys, useHotkeysContext } from "react-hotkeys-hook";
 import { cn } from "@/lib/utils";
 
 function TaskCard({ task, selected, onToggleSelect }: { task: Task; selected: boolean, onToggleSelect: () => void; }) {
@@ -129,6 +129,7 @@ export function BacklogBelt({ dateISO }: { dateISO: string }) {
   const tasks  = usePlanner(s => s.tasks);
   const blocks = usePlanner(s => s.blocks);
   const all = useMemo(() => getBacklogCandidates(tasks, blocks, dateISO), [tasks, blocks, dateISO]);
+  const { enableScope, disableScope } = useHotkeysContext();
   
   const [expanded, setExpanded] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
@@ -184,8 +185,16 @@ export function BacklogBelt({ dateISO }: { dateISO: string }) {
 
   return (
     <motion.div
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => !isDragging && setExpanded(false)}
+      onMouseEnter={() => {
+        setExpanded(true);
+        enableScope('tasks');
+      }}
+      onMouseLeave={() => {
+        if (!isDragging) {
+          setExpanded(false);
+          disableScope('tasks');
+        }
+      }}
       className="mt-2 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm flex flex-col flex-shrink-0"
       animate={{ height: expanded || isDragging ? 240 : 56 }}
       transition={{ duration: 0.2, ease: "easeInOut" }}

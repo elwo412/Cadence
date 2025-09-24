@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useHotkeys, HotkeysProvider } from "react-hotkeys-hook";
 import {
   DndContext,
   DragOverlay,
@@ -134,27 +134,29 @@ export default function AppShell() {
   const previewBlock = usePlanner((state) => state.previewBlock);
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-      collisionDetection={pointerWithin}
-    >
-      <div className="h-screen w-screen bg-black flex text-sm text-zinc-100 font-sans">
-        <Toaster theme="dark" />
-        <LeftNav active={activeView} setActive={setActiveView} />
+    <HotkeysProvider>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+        collisionDetection={pointerWithin}
+      >
+        <div className="h-screen w-screen bg-black flex text-sm text-zinc-100 font-sans">
+          <Toaster theme="dark" />
+          <LeftNav active={activeView} setActive={setActiveView} />
 
-        <main className="flex-1 bg-zinc-900/80 overflow-auto min-h-0">
-          {pages[activeView]}
-        </main>
+          <main className="flex-1 bg-zinc-900/80 overflow-auto min-h-0">
+            {pages[activeView]}
+          </main>
 
-        <DayPeek />
-      </div>
-      <DragOverlay>
-        {activeDragTask ? <TaskDragOverlay task={activeDragTask} /> : null}
-      </DragOverlay>
-    </DndContext>
+          <DayPeek />
+        </div>
+        <DragOverlay>
+          {activeDragTask ? <TaskDragOverlay task={activeDragTask} /> : null}
+        </DragOverlay>
+      </DndContext>
+    </HotkeysProvider>
   );
 }
